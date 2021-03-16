@@ -5,4 +5,4 @@ cmake-build-release
 /out
 bin
 obj
-Properties
+/codegen_src/Properties/launchSettings.json
