@@ -1,5 +1,5 @@
 {
-  "refs": [],
+  "refs": [ ],
   "name": "Shared",
   "files": [ "./abc.cs", "./def.cs" ],
   "outdir_cs": "../out/cs/",
