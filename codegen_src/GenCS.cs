@@ -83,8 +83,10 @@ namespace { c.Namespace  }
 ");
             }
 
-            sb.Append(@"
+            if (need_compatible || fs.Count > 0) {
+                sb.Append(@"
             int err;");
+            }
 
             if (need_compatible) {
                 sb.Append($@"
@@ -124,7 +126,7 @@ namespace { c.Namespace  }
             else {
                 sb.Append($@"
             return 0;
-    }}");
+        }}");
             }
 
             #endregion

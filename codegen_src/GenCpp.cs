@@ -29,50 +29,38 @@ public static class GenCpp {
 
     public static void Gen_h() {
         var sb = new StringBuilder();
+        sb.Append(@"#pragma once");
+
+        // 包含依赖
+        if (cfg.refsCfgs.Count == 0) {
+            sb.Append(@"
+#include ""xx_obj.h""");
+        }
+        foreach(var c in cfg.refsCfgs) {
+            sb.Append(@"
+#include """ + c.name + @".h""");
+        }
+
+        // 前置切片
+        createEmptyFiles.Add(cfg.name + ".h.inc");
+        sb.Append(@"
+#include """ + cfg.name + @".h.inc""");
 
         // 校验和注册
-
-        sb.Append(@"#pragma once
-#include ""xx_obj.h""");
-        // todo: refs
         sb.Append(@"
-#include """ + cfg.name + @".h.inc""
-namespace " + cfg.name + @" {
-	struct CodeGenMd5 {
-		inline static const ::std::string value = """ + StringHelpers.MD5PlaceHolder + @""";
-    };
-	struct CodeGenTypes {
-        static void Register();
-    };
-");
-
-        // 前置切片文件
-
-        createEmptyFiles.Add(cfg.name + ".h.inc");
+struct CodeGen_" + cfg.name + @" {
+	inline static const ::std::string md5 = """ + StringHelpers.MD5PlaceHolder + @""";
+    static void Register();
+};");
 
         // 所有 class 的预声明
-
-        for (int i = 0; i < cfg.localClasss.Count; ++i) {
-            var c = cfg.localClasss[i];
-            var o = c._GetInstance();
-
-            if (c.Namespace != null && (i == 0 || (i > 0 && cfg.localClasss[i - 1].Namespace != c.Namespace))) // namespace 去重
-            {
+        for (int i = 0; i < cfg.classs.Count; ++i) {
+            var c = cfg.classs[i];
                 sb.Append(@"
-namespace " + c.Namespace.Replace(".", "::") + @" {");
-            }
-
-            sb.Append(@"
-    struct " + c.Name + ";");
-
-            if (c.Namespace != null && ((i < cfg.classs.Count - 1 && cfg.classs[i + 1].Namespace != c.Namespace) || i == cfg.classs.Count - 1)) {
-                sb.Append(@"
-}");
-            }
+namespace " + c.Namespace.Replace(".", "::") + @" { struct " + c.Name + "; }");
         }
 
         sb.Append(@"
-}
 namespace xx {");
         foreach (var c in cfg.classs) {
             if (c._IsStruct()) return;
@@ -165,8 +153,9 @@ namespace xx {");
         sb.Append(@"
 }");
 
+        // 后置切片
         sb.Append(@"
-#include """ + cfg.name + @"_class_lite_.h.inc""  // user create it for extend include files at the end
+#include """ + cfg.name + @"_.h.inc""
 ");
         createEmptyFiles.Add(cfg.name + "_class_lite_.h.inc");
 
