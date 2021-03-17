@@ -12,8 +12,10 @@ public static class Program {
 
     public static void TipsAndExit(string msg, int exitCode = 0) {
         Console.WriteLine(msg);
-        Console.WriteLine("按任意键退出");
-        Console.ReadKey();
+        if (exitCode != 0) {
+            Console.WriteLine("按任意键退出");
+            Console.ReadKey();
+        }
         Environment.Exit(exitCode);
     }
 
@@ -51,7 +53,7 @@ public static class Program {
             }
         }
         catch (Exception ex) {
-            TipsAndExit("生成失败: " + ex.Message + "\r\n" + ex.StackTrace);
+            TipsAndExit("生成失败: " + ex.Message + "\r\n" + ex.StackTrace, -1);
         }
         TipsAndExit("生成完毕");
     }
