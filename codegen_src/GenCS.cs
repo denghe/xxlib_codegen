@@ -179,9 +179,9 @@ namespace { c.Namespace  }
 
         var tb = new StringBuilder();
 
-        foreach (var item in cfg.typeIdClassMappings) {
+        foreach (var c in cfg.localClasss) {
             tb.Append($@"
-         xx.ObjManager.Register<{item.Value.FullName}>({item.Key});");
+         xx.ObjManager.Register<{c.FullName}>({c._GetTypeId()});");
         }
 
         sb.Append($@"

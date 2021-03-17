@@ -36,7 +36,7 @@ public static class GenCpp {
             sb.Append(@"
 #include ""xx_obj.h""");
         }
-        foreach(var c in cfg.refsCfgs) {
+        foreach (var c in cfg.refsCfgs) {
             sb.Append(@"
 #include """ + c.name + @".h""");
         }
@@ -53,16 +53,21 @@ struct CodeGen_" + cfg.name + @" {
     static void Register();
 };");
 
-        // 所有 class 的预声明
-        for (int i = 0; i < cfg.classs.Count; ++i) {
-            var c = cfg.classs[i];
+        // 所有 本地 class 的预声明
+        foreach (var c in cfg.localClasss) {
+            var ns = c._GetNamespace_Cpp(false);
+            if (string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-namespace " + c._GetNamespace_Cpp() + @" { struct " + c.Name + "; }");
+struct " + c.Name + ";");
+            }
+            else sb.Append(@"
+namespace " + c._GetNamespace_Cpp(false) + @" { struct " + c.Name + "; }");
         }
 
+        // 所有本地 class 的 TypeId 映射
         sb.Append(@"
 namespace xx {");
-        foreach (var c in cfg.classs) {
+        foreach (var c in cfg.localClasss) {
             if (c._IsStruct()) return;
             var ctn = c._GetTypeDecl_Cpp();
             var typeId = c._GetTypeId();
@@ -75,12 +80,13 @@ namespace xx {");
 }
 ");
 
+        // 所有本地 enums
         for (int i = 0; i < cfg.enums.Count; ++i) {
             var e = cfg.enums[i];
-            if (e.Namespace != null && (i == 0 || (i > 0 && cfg.enums[i - 1].Namespace != e.Namespace))) // namespace 去重
-            {
+            var ns = e._GetNamespace_Cpp(false);
+            if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-namespace " + e.Namespace.Replace(".", "::") + @" {");
+namespace " + ns + "{");
             }
 
             sb.Append(e._GetDesc()._GetComment_Cpp(4) + @"
@@ -95,7 +101,7 @@ namespace " + e.Namespace.Replace(".", "::") + @" {");
             sb.Append(@"
     };");
 
-            if (e.Namespace != null && ((i < cfg.enums.Count - 1 && cfg.enums[i + 1].Namespace != e.Namespace) || i == cfg.enums.Count - 1)) {
+            if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
 }");
             }
