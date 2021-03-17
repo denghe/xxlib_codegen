@@ -118,22 +118,22 @@ namespace " + ns + @" {");
 
             if (c._IsStruct()) {
                 var btn = c._HasBaseType() ? (" : " + bt._GetTypeDecl_Cpp()) : "";
-                sb.Append(c._GetDesc()._GetComment_Cpp(4) + @"
-" + ss + @"    struct " + c.Name + btn + @" {
-" + ss + @"        XX_GENCODE_STRUCT_H(" + c.Name + @")");
+                sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length) + @"
+" + ss + @"struct " + c.Name + btn + @" {
+" + ss + @"    XX_OBJ_STRUCT_H(" + c.Name + @")");
             }
             else {
                 var btn = c._HasBaseType() ? bt._GetTypeDecl_Cpp() : "::xx::ObjBase";
-                sb.Append(c._GetDesc()._GetComment_Cpp(4) + @"
-" + ss + @"    struct " + c.Name + " : " + btn + @" {
-" + ss + @"        XX_GENCODE_OBJECT_H(" + c.Name + @", " + btn + @")");
+                sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length) + @"
+" + ss + @"struct " + c.Name + " : " + btn + @" {
+" + ss + @"    XX_OBJ_OBJECT_H(" + c.Name + @", " + btn + @")");
             }
 
-
-            if (c._Has<TemplateLibrary.Include>()) {
-                createEmptyFiles.Add(c._GetUnderlineFullname() + ".inc");
+            if (c._HasInclude()) {
+                var fn = c._GetUnderlineFullname() + ".inc";
+                createEmptyFiles.Add(fn);
                 sb.Append(@"
-#include """ + c._GetUnderlineFullname() + @".inc""");
+#include """ + fn + @"""");
             }
 
             var fs = c._GetFieldsConsts();
@@ -141,7 +141,7 @@ namespace " + ns + @" {");
                 var ft = f.FieldType;
                 var ftn = ft._GetTypeDecl_Cpp();
                 sb.Append(f._GetDesc()._GetComment_Cpp(8) + @"
-" + ss + @"        " + (f.IsStatic ? "constexpr " : "") + ftn + " " + f.Name);
+" + ss + @"    " + (f.IsStatic ? "constexpr " : "") + ftn + " " + f.Name);
 
                 var v = f.GetValue(f.IsStatic ? null : o);
                 var dv = ft._GetDefaultValueDecl_Cpp(v);
@@ -153,14 +153,15 @@ namespace " + ns + @" {");
                 }
             }
 
-            if (c._Has<TemplateLibrary.Include_>()) {
-                createEmptyFiles.Add(c._GetUnderlineFullname() + ".inc");
+            if (c._HasInclude_()) {
+                var fn = c._GetUnderlineFullname() + "_.inc";
+                createEmptyFiles.Add(fn);
                 sb.Append(@"
-#include """ + c._GetUnderlineFullname() + @"_.inc""");
+#include """ + fn + @"""");
             }
 
             sb.Append(@"
-" + ss + @"    };");
+" + ss + @"};");
 
             if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
