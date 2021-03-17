@@ -183,4 +183,13 @@ public static partial class TypeHelpers {
         return "\r\n"
  + sps + @"// " + s;
     }
+
+    /// <summary>
+    /// 获取 Cpp 风格的 namespace
+    /// </summary>
+    public static string _GetNamespace_Cpp(this Type t) {
+        if (t.Namespace == null) return "::";
+        return "::" + t.Namespace.Replace(".", "::");
+    }
+
 }
