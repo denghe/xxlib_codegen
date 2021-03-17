@@ -33,13 +33,13 @@ public static partial class TypeHelpers {
             else if (t.Namespace == nameof(System)) {
                 switch (t.Name) {
                     case "Object":
-                        return "ISerde";
+                        return "xx.ISerde";
                     default:
                         throw new NotSupportedException();
                 }
             }
 
-            return t.FullName + ",ISerde";
+            return t.FullName + ", xx.ISerde";
             //throw new Exception("unhandled data type");
         }
     }

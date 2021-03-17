@@ -188,8 +188,14 @@ public static partial class TypeHelpers {
     /// 获取 Cpp 风格的 namespace
     /// </summary>
     public static string _GetNamespace_Cpp(this Type t) {
-        if (t.Namespace == null) return "::";
-        return "::" + t.Namespace.Replace(".", "::");
+        return "::" + (t.Namespace == null ? "" : t.Namespace.Replace(".", "::"));
+    }
+
+    /// <summary>
+    /// 获取 Cpp 风格的 #include "xxxxxxxxxxxxx"
+    /// </summary>
+    public static string _GetUnderlineFullname_Cpp(this Type t) {
+        return cfg.name + "_" + (t.Namespace == null ? "" : t.Namespace.Replace(".", "_")) + t.Name;
     }
 
 }
