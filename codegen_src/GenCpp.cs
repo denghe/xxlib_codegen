@@ -102,8 +102,7 @@ namespace " + ns + "{");
             }
         }
 
-        // 所有本地 class & structs
-        foreach (var c in cfg.localClasssStructs) {
+        var a = new Action<Type>((c) => {
             var o = c._GetInstance();
             var ns = c._GetNamespace_Cpp(false);
             string ss = "";
@@ -169,7 +168,24 @@ namespace " + ns + @" {");
                 sb.Append(@"
 }");
             }
+        });
+
+        // 所有本地 structs & class
+        foreach (var c in cfg.localStructs) {
+            a(c);
         }
+        foreach (var c in cfg.localClasss) {
+            a(c);
+        }
+        sb.Append(@"
+namespace xx {");
+        foreach (var c in cfg.localStructs) {
+            sb.Append(@"
+	XX_OBJ_STRUCT_TEMPLATE_H(" + c._GetTypeDecl_Cpp() + @")");
+        }
+        sb.Append(@"
+}");
+
 
         sb.Append(@"
 
@@ -178,7 +194,7 @@ namespace xx {");
             if (!c._IsStruct()) continue;
             var ctn = c._GetTypeDecl_Cpp();
             sb.Append(@"
-	XX_GENCODE_STRUCT_TEMPLATE_H(" + ctn + @")");
+	XX_OBJ_STRUCT_TEMPLATE_H(" + ctn + @")");
         }
         sb.Append(@"
 }");
@@ -679,7 +695,7 @@ namespace " + ns + "{");
 }");
             }
         }
-            sb.Append(@"
+        sb.Append(@"
 ");
         sb._WriteToFile(Path.Combine(cfg.outdir_cpp, cfg.name + ".cpp"));
     }
