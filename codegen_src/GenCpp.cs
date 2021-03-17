@@ -62,20 +62,21 @@ struct " + c.Name + ";");
 namespace " + c._GetNamespace_Cpp(false) + @" { struct " + c.Name + "; }");
         }
 
-        // 所有本地 class 的 TypeId 映射
-        sb.Append(@"
-namespace xx {");
-        foreach (var c in cfg.localClasss) {
+        // 所有 本地 class 的 TypeId 映射
+        if (cfg.localClasss.Count > 0) {
             sb.Append(@"
+namespace xx {");
+            foreach (var c in cfg.localClasss) {
+                sb.Append(@"
     template<> struct TypeId<" + c._GetTypeDecl_Cpp() + @"> { static const uint16_t value = " + c._GetTypeId() + @"; };");
-        }
-        sb.Append(@"
+            }
+            sb.Append(@"
 }
 ");
+        }
 
-        // 所有本地 enums
-        for (int i = 0; i < cfg.enums.Count; ++i) {
-            var e = cfg.enums[i];
+        // 所有 本地 enums
+        foreach (var e in cfg.localEnums) {
             var ns = e._GetNamespace_Cpp(false);
             string ss = "";
             if (!string.IsNullOrEmpty(ns)) {
@@ -177,27 +178,16 @@ namespace " + ns + @" {");
         foreach (var c in cfg.localClasss) {
             a(c);
         }
-        sb.Append(@"
-namespace xx {");
-        foreach (var c in cfg.localStructs) {
+        if (cfg.localStructs.Count > 0) {
             sb.Append(@"
+namespace xx {");
+            foreach (var c in cfg.localStructs) {
+                sb.Append(@"
 	XX_OBJ_STRUCT_TEMPLATE_H(" + c._GetTypeDecl_Cpp() + @")");
-        }
-        sb.Append(@"
-}");
-
-
-        sb.Append(@"
-
-namespace xx {");
-        foreach (var c in cfg.classs) {
-            if (!c._IsStruct()) continue;
-            var ctn = c._GetTypeDecl_Cpp();
+            }
             sb.Append(@"
-	XX_OBJ_STRUCT_TEMPLATE_H(" + ctn + @")");
-        }
-        sb.Append(@"
 }");
+        }
 
         // 后置切片
         {
@@ -464,26 +454,27 @@ namespace " + ns + "{");
 
             var o = c._GetInstance();
 
-            sb.Append(@"
-" + ss + @"" + c.Name + @"::" + c.Name + @"(" + c.Name + @"&& o) noexcept {
-" + ss + @"    this->operator=(std::move(o));
-" + ss + @"}
-" + ss + @"" + c.Name + @"& " + c.Name + @"::operator=(" + c.Name + @"&& o) noexcept {");
-            if (c._HasBaseType()) {
-                var bt = c.BaseType;
-                var btn = bt._GetTypeDecl_Cpp();
-                sb.Append(@"
-" + ss + @"    this->" + (c._IsStruct() ? btn : "BaseType") + "::operator=(std::move(o));");
-            }
+            //            sb.Append(@"
+            //" + ss + @"" + c.Name + @"::" + c.Name + @"(" + c.Name + @"&& o) noexcept {
+            //" + ss + @"    this->operator=(std::move(o));
+            //" + ss + @"}
+            //" + ss + @"" + c.Name + @"& " + c.Name + @"::operator=(" + c.Name + @"&& o) noexcept {");
+            //            if (c._HasBaseType()) {
+            //                var bt = c.BaseType;
+            //                var btn = bt._GetTypeDecl_Cpp();
+            //                sb.Append(@"
+            //" + ss + @"    this->" + (c._IsStruct() ? btn : "BaseType") + "::operator=(std::move(o));");
+            //            }
+
             var fs = c._GetFields();
-            foreach (var f in fs) {
-                var ft = f.FieldType;
-                sb.Append(@"
-" + ss + @"    std::swap(this->" + f.Name + ", o." + f.Name + ");");
-            }
-            sb.Append(@"
-" + ss + @"    return *this;
-" + ss + @"}");
+            //            foreach (var f in fs) {
+            //                var ft = f.FieldType;
+            //                sb.Append(@"
+            //" + ss + @"    std::swap(this->" + f.Name + ", o." + f.Name + ");");
+            //            }
+            //            sb.Append(@"
+            //" + ss + @"    return *this;
+            //" + ss + @"}");
 
             if (c._IsClass()) {
 
