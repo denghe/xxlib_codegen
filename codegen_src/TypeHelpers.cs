@@ -172,6 +172,13 @@ public static partial class TypeHelpers {
         var cas = f.GetCustomAttributes(false).ToList();
         return cas.Any(a => a is T);
     }
+    public static bool _HasInclude(this ICustomAttributeProvider f) {
+        return _Has<TemplateLibrary.Include>(f);
+    }
+    public static bool _HasInclude_(this ICustomAttributeProvider f) {
+        return _Has<TemplateLibrary.Include_>(f);
+    }
+    // todo: more has for easy use
 
     /// <summary>
     /// 递归判断 是否有任意成员变量类型是 class ( 含泛型 )

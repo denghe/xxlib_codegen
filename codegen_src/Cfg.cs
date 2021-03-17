@@ -357,6 +357,47 @@ partial class Cfg {
             t => t.Namespace != nameof(System) && t.Namespace != nameof(TemplateLibrary)
         ).ToList();
 
+        // 先填充一次( 排序的时候依赖那些分类容器 )
+        FillLists(cfg);
+
+        // types 按依赖顺序排序( cpp 生成需要 )
+        TypeHelpers.cfg = cfg;
+        cfg.types._SortByInheritRelation();
+
+        // 再填充一次( 让所有分类容器也按照依赖顺序存储 )
+        FillLists(cfg);
+
+        // 填充 typeId
+        foreach (var c in cfg.classs) {
+            var id = c._GetTypeId();
+            if (id == null) throw new Exception("type: " + c.FullName + " miss [TypeId(xxxxxx)]");
+            else {
+                if (cfg.typeIdClassMappings.ContainsKey(id.Value)) {
+                    throw new Exception("type: " + c.FullName + "'s typeId is duplicated with " + cfg.typeIdClassMappings[id.Value].FullName);
+                }
+                else {
+                    cfg.typeIdClassMappings.Add(id.Value, c);
+                }
+            }
+        }
+        foreach (var kv in cfg.typeIdClassMappings) {
+            cfg.ClassTypeIdMappings.Add(kv.Value, kv.Key);
+        }
+
+        // todo: more 合法性检测( 标签加错位置? 值不对? .... )
+
+
+        // todo: recursive refs check
+
+        // 还原工作目录
+        Environment.CurrentDirectory = cd;
+
+
+        return cfg;
+    }
+
+    // fill cfg.xxxxxxxs lists
+    public static void FillLists(Cfg cfg) {
         // 归并 refs asm 所有 types
         var allExts = new List<Type>();
         foreach (var rc in cfg.refsCfgs) {
@@ -364,7 +405,6 @@ partial class Cfg {
         }
         // 得到所有 type 的名称( 直接对比 type 的话，跨 asm 会不同 )
         var allExtNames = allExts.Select(o => o.FullName).Distinct().ToList();
-
 
         // 本地 所有 类型 = types 除开 allExts 以及明确标记为外部类型的
         cfg.localClasssStructsEnumsInterfaces = cfg.types.Where(o => !allExtNames.Contains(o.FullName) && !o._Has<TemplateLibrary.External>()).ToList();
@@ -429,33 +469,5 @@ partial class Cfg {
         cfg.externalClasssStructsEnums = new List<Type>();
         cfg.externalClasssStructsEnums.AddRange(cfg.externalClasssStructs);
         cfg.externalClasssStructsEnums.AddRange(cfg.externalEnums);
-
-        // 填充 typeId
-        foreach (var c in cfg.classs) {
-            var id = c._GetTypeId();
-            if (id == null) { }// throw new Exception("type: " + c.FullName + " miss [TypeId(xxxxxx)]");
-            else {
-                if (cfg.typeIdClassMappings.ContainsKey(id.Value)) {
-                    throw new Exception("type: " + c.FullName + "'s typeId is duplicated with " + cfg.typeIdClassMappings[id.Value].FullName);
-                }
-                else {
-                    cfg.typeIdClassMappings.Add(id.Value, c);
-                }
-            }
-        }
-        foreach (var kv in cfg.typeIdClassMappings) {
-            cfg.ClassTypeIdMappings.Add(kv.Value, kv.Key);
-        }
-
-        // todo: more 合法性检测( 标签加错位置? 值不对? .... )
-
-
-        // todo: recursive refs check
-
-        // 还原工作目录
-        Environment.CurrentDirectory = cd;
-
-
-        return cfg;
     }
 }
