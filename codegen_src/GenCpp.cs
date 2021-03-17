@@ -113,9 +113,8 @@ namespace " + ns + @" {");
                 ss = "    ";
             }
 
-            // 定位到基类
+            // 头部
             var bt = c.BaseType;
-
             if (c._IsStruct()) {
                 var btn = c._HasBaseType() ? (" : " + bt._GetTypeDecl_Cpp()) : "";
                 sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length) + @"
@@ -129,6 +128,7 @@ namespace " + ns + @" {");
 " + ss + @"    XX_OBJ_OBJECT_H(" + c.Name + @", " + btn + @")");
             }
 
+            // 前置包含
             if (c._HasInclude()) {
                 var fn = c._GetUnderlineFullname() + ".inc";
                 createEmptyFiles.Add(fn);
@@ -136,6 +136,7 @@ namespace " + ns + @" {");
 #include """ + fn + @"""");
             }
 
+            // 成员
             var fs = c._GetFieldsConsts();
             foreach (var f in fs) {
                 var ft = f.FieldType;
@@ -153,6 +154,7 @@ namespace " + ns + @" {");
                 }
             }
 
+            // 后置包含
             if (c._HasInclude_()) {
                 var fn = c._GetUnderlineFullname() + "_.inc";
                 createEmptyFiles.Add(fn);
@@ -169,9 +171,8 @@ namespace " + ns + @" {");
             }
         }
 
-
         sb.Append(@"
-}
+
 namespace xx {");
         foreach (var c in cfg.classs) {
             if (!c._IsStruct()) continue;
