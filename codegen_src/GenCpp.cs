@@ -57,7 +57,7 @@ struct CodeGen_" + cfg.name + @" {
         for (int i = 0; i < cfg.classs.Count; ++i) {
             var c = cfg.classs[i];
                 sb.Append(@"
-namespace " + c.Namespace.Replace(".", "::") + @" { struct " + c.Name + "; }");
+namespace " + c._GetNamespace_Cpp() + @" { struct " + c.Name + "; }");
         }
 
         sb.Append(@"
@@ -184,7 +184,7 @@ namespace xx {");
 
         if (c._Has<TemplateLibrary.Include>()) {
             sb.Append(@"
-#include """ + c._GetTypeDecl_Lua() + @".inc""");
+#include """ + c._GetInclude_Cpp() + @".inc""");
             createEmptyFiles.Add(c._GetTypeDecl_Lua() + ".inc");
         }
 
@@ -207,7 +207,7 @@ namespace xx {");
 
         if (c._Has<TemplateLibrary.Include_>()) {
             sb.Append(@"
-#include """ + c._GetTypeDecl_Lua() + @"_.inc""");
+#include """ + cfg.name + "_" + c._GetTypeDecl_Lua() + @"_.inc""");
             createEmptyFiles.Add(c._GetTypeDecl_Lua() + ".inc");
         }
 
