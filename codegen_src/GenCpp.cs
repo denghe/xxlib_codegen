@@ -68,7 +68,6 @@ namespace " + c._GetNamespace_Cpp(false) + @" { struct " + c.Name + "; }");
         sb.Append(@"
 namespace xx {");
         foreach (var c in cfg.localClasss) {
-            if (c._IsStruct()) return;
             var ctn = c._GetTypeDecl_Cpp();
             var typeId = c._GetTypeId();
             if (typeId.HasValue) {

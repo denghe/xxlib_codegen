@@ -433,7 +433,7 @@ partial class Cfg {
         // 填充 typeId
         foreach (var c in cfg.classs) {
             var id = c._GetTypeId();
-            if (id == null) { }// throw new Exception("type: " + c.FullName + " miss [TypeId(xxxxxx)]");
+            if (id == null) throw new Exception("type: " + c.FullName + " miss [TypeId(xxxxxx)]");
             else {
                 if (cfg.typeIdClassMappings.ContainsKey(id.Value)) {
                     throw new Exception("type: " + c.FullName + "'s typeId is duplicated with " + cfg.typeIdClassMappings[id.Value].FullName);
