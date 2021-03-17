@@ -33,7 +33,9 @@ public static class GenCpp {
         // 校验和注册
 
         sb.Append(@"#pragma once
-#include ""xx_obj.h""
+#include ""xx_obj.h""");
+        // todo: refs
+        sb.Append(@"
 #include """ + cfg.name + @".h.inc""
 namespace " + cfg.name + @" {
 	struct CodeGenMd5 {
@@ -48,7 +50,7 @@ namespace " + cfg.name + @" {
 
         createEmptyFiles.Add(cfg.name + ".h.inc");
 
-        // 所有 class 的预声明( 
+        // 所有 class 的预声明
 
         for (int i = 0; i < cfg.localClasss.Count; ++i) {
             var c = cfg.localClasss[i];
