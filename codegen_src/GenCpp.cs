@@ -183,9 +183,9 @@ namespace xx {");
 
 
         if (c._Has<TemplateLibrary.Include>()) {
+            createEmptyFiles.Add(c._GetUnderlineFullname() + ".inc");
             sb.Append(@"
-#include """ + c._GetInclude_Cpp() + @".inc""");
-            createEmptyFiles.Add(c._GetTypeDecl_Lua() + ".inc");
+#include """ + c._GetUnderlineFullname() + @".inc""");
         }
 
         var fs = c._GetFieldsConsts();
@@ -206,9 +206,9 @@ namespace xx {");
         }
 
         if (c._Has<TemplateLibrary.Include_>()) {
+            createEmptyFiles.Add(c._GetUnderlineFullname() + ".inc");
             sb.Append(@"
-#include """ + cfg.name + "_" + c._GetTypeDecl_Lua() + @"_.inc""");
-            createEmptyFiles.Add(c._GetTypeDecl_Lua() + ".inc");
+#include """ + c._GetUnderlineFullname() + @"_.inc""");
         }
 
         sb.Append(@"

@@ -332,6 +332,12 @@ public static partial class TypeHelpers {
         throw new Exception("unknown Underlying Type");
     }
 
+    /// <summary>
+    /// 获取 下划线连接的 namespace + name
+    /// </summary>
+    public static string _GetUnderlineFullname(this Type t) {
+        return cfg.name + "_" + (t.Namespace == null ? "" : t.Namespace.Replace(".", "_")) + t.Name;
+    }
 
     /**************************************************************************************************/
     // 其他
