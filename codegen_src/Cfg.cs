@@ -162,39 +162,6 @@ partial class Cfg {
     /// type : typeId 字典，包含 asm 中所有用户类型( 本地&外部 填写了 [TypeId( ? )] 的 )
     /// </summary>
     public Dictionary<Type, ushort> ClassTypeIdMappings = new Dictionary<Type, ushort>();
-
-
-    /// <summary>
-    /// 是否本地类型
-    /// </summary>
-    public bool IsLocal(Type t) {
-        return localClasssStructsEnums.Contains(t);
-    }
-    /// <summary>
-    /// 是否扩展类型
-    /// </summary>
-    public bool IsExternal(Type t) {
-        return externalClasssStructsEnums.Contains(t);
-    }
-    /// <summary>
-    /// 是否 class
-    /// </summary>
-    public bool IsClass(Type t) {
-        return classs.Contains(t);
-    }
-    /// <summary>
-    /// 是否 struct
-    /// </summary>
-    public bool IsStruct(Type t) {
-        return structs.Contains(t);
-    }
-    /// <summary>
-    /// 是否 struct
-    /// </summary>
-    public bool IsEnum(Type t) {
-        return enums.Contains(t);
-    }
-    // todo: more: IsNullable  IsTuple IsList IsNumeric IsContainer GetChildType ........
 }
 
 
