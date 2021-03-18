@@ -159,11 +159,19 @@ namespace { c.Namespace  }
                 sb.Append(@"
             data.WriteFiexdAt(bak, (uint)(data.Length - bak));
         }
+
+        public override string ToString()            
+           => xx.ObjManager.SerializeString(this);
+
     }");
             }
             else {
                 sb.Append(@"
         }
+
+        public override string ToString()            
+           => xx.ObjManager.SerializeString(this);
+
     }");
             }
 
