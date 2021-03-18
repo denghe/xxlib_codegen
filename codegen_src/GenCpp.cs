@@ -346,33 +346,17 @@ namespace xx {");
     }");
 
             sb.Append(@"
-    void ObjFuncs<" + ctn + @">::Clone1(::xx::ObjManager& om, " + ctn + @" const& in, " + ctn + @" &out) {");
+    void ObjFuncs<" + ctn + @">::Clone(::xx::ObjManager& om, " + ctn + @" const& in, " + ctn + @" &out) {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Clone1(om, in, out);");
+        ObjFuncs<" + btn + ">::Clone_(om, in, out);");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        om.Clone1(in." + f.Name + ", out." + f.Name + ");");
-            }
-            sb.Append(@"
-    }");
-
-            sb.Append(@"
-    void ObjFuncs<" + ctn + @">::Clone2(::xx::ObjManager& om, " + ctn + @" const& in, " + ctn + @" &out) {");
-            if (c._HasBaseType()) {
-                var bt = c.BaseType;
-                var btn = bt._GetTypeDecl_Cpp();
-                sb.Append(@"
-        ObjFuncs<" + btn + ">::Clone2(om, in, out);");
-            }
-            foreach (var f in fs) {
-                var ft = f.FieldType;
-                sb.Append(@"
-        om.Clone2(in." + f.Name + ", out." + f.Name + ");");
+        om.Clone_(in." + f.Name + ", out." + f.Name + ");");
             }
             sb.Append(@"
     }");
@@ -581,11 +565,11 @@ namespace " + ns + "{");
 " + ss + @"}");
 
                 sb.Append(@"
-" + ss + @"void " + c.Name + @"::Clone1(::xx::ObjManager& om, void* const &tar) const {");
+" + ss + @"void " + c.Name + @"::Clone(::xx::ObjManager& om, void* const &tar) const {");
                 if (c._HasBaseType()) {
                     var bt = c.BaseType;
                     sb.Append(@"
-" + ss + @"    this->BaseType::Clone1(om, tar);");
+" + ss + @"    this->BaseType::Clone(om, tar);");
                 }
                 if (fs.Count > 0) {
                     sb.Append(@"
@@ -594,26 +578,7 @@ namespace " + ns + "{");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
                     sb.Append(@"
-" + ss + @"    om.Clone1(this->" + f.Name + ", out->" + f.Name + ");");
-                }
-                sb.Append(@"
-" + ss + @"}");
-                sb.Append(@"
-" + ss + @"void " + c.Name + @"::Clone2(::xx::ObjManager& om, void* const &tar) const {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-" + ss + @"    this->BaseType::Clone2(om, tar);");
-                }
-                if (fs.Count > 0) {
-                    sb.Append(@"
-" + ss + @"    auto out = (" + c._GetTypeDecl_Cpp() + @"*)tar;");
-                }
-
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-" + ss + @"    om.Clone2(this->" + f.Name + ", out->" + f.Name + ");");
+" + ss + @"    om.Clone_(this->" + f.Name + ", out->" + f.Name + ");");
                 }
                 sb.Append(@"
 " + ss + @"}");
