@@ -49,7 +49,9 @@ public static class GenCpp {
 struct CodeGen_" + cfg.name + @" {
 	inline static const ::std::string md5 = """ + StringHelpers.MD5PlaceHolder + @""";
     static void Register();
-};");
+    CodeGen_" + cfg.name + @"() { Register(); }
+};
+inline CodeGen_" + cfg.name + @" __CodeGen_" + cfg.name + @";");
 
         // 所有 本地 class 的预声明
         foreach (var c in cfg.localClasss) {
