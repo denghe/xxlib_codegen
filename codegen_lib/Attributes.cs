@@ -3,6 +3,9 @@ namespace TemplateLibrary {
 
     // 语言定位：C++ 通信 + 建模( 支持递归强弱引用 ), C# Lua 仅通信( 只支持基础结构体组合 & 继承 )
 
+    // 使用 byte[] 来指代 xx.Data
+    // C++ 生成时，使用 object 来指代 xx::ObjBase
+
     /// <summary>
     /// 对应 c++ std::optional, c# Nullable<>, lua variable
     /// 考虑到 c# string & class & lua table 默认语言级别可空，和 c++ 默认值类型冲突
@@ -85,8 +88,6 @@ namespace TemplateLibrary {
     public class External : System.Attribute {
     }
 
-
-
     /// <summary>
     /// C++ only
     /// 标记一个类需要抠洞在声明部分嵌入 模板名_类名.inc ( 在成员前面 )
@@ -106,7 +107,7 @@ namespace TemplateLibrary {
 
 
     /****************************************************************************************/
-    // 下面的东西用不用看心情
+    // 次要的
 
     /// <summary>
     /// C# only

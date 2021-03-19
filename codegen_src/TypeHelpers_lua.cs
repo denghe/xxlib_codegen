@@ -10,42 +10,49 @@ using System.Text;
 public static partial class TypeHelpers {
 
     /// <summary>
-    /// 获取 LUA 的默认值填充代码
+    /// 获取 LUA 的 字段 默认值
     /// </summary>
-    public static string _GetDefaultValueDecl_Lua(this object v) {
-        if (v == null) return "null";
-        var t = v.GetType();
-        if (t._IsNullable()) {
-            return "";
+    public static string _GetDefaultValueDecl_Lua(this FieldInfo f, object o) {
+        var t = f.FieldType;
+        if (t._IsWeak() || t._IsShared()) {
+            return "null";
         }
-        else if (t.IsValueType) {
-            if (t.IsEnum) {
-                var sv = v._GetEnumInteger(t);
-                if (sv == "0") return "0";
-                // 如果 v 的值在枚举中找不到, 输出硬转格式. 否则输出枚举项
-                var fs = t._GetEnumFields();
-                if (fs.Exists(f => f._GetEnumValue(t).ToString() == sv)) {
-                    return _GetTypeDecl_Lua(t) + "." + v.ToString();
-                }
-                else {
-                    return sv.ToString();
-                }
+        if (t._IsClass() || t._IsStruct()) {
+            return t._GetTypeDecl_Lua() + ".Create()";
+        }
+        if (t._IsData()) {
+            return "NewXxData()";
+        }
+        if (t._IsList()) {
+            return "{}";
+        }
+
+        var v = f.GetValue(o);
+        if (t._IsString()) {
+            return v == null ? "\"\"" : ("\"" + ((string)v).Replace("\"", "\"\"") + "\"");
+        }
+        if (t._IsNullable() || t._IsNumeric()) {
+            return v == null ? "null" : v.ToString().ToLower();
+        }
+        if (t.IsEnum) {
+            var sv = v._GetEnumInteger(t);
+            // 如果 v 的值在枚举中找不到, 输出数字
+            var fs = t._GetEnumFields();
+            if (fs.Exists(f => f._GetEnumValue(t).ToString() == sv)) {
+                return t._GetTypeDecl_Lua() + "." + v.ToString();
             }
-            if (t._IsNumeric()) return v.ToString().ToLower();   // lower for Ture, False bool
-            else return "";
+            else {
+                return v._GetEnumInteger(t).ToString();
+            }
         }
-        else if (t._IsString()) {
-            return "[[" + (string)v + "]]";
-        }
-        else {
-            return v.ToString();
-        }
-        // todo: 其他需要引号的类型的处理, 诸如 DateTime, Guid 啥的
+
+        throw new Exception("unsupported type: " + t.FullName + " " + f.Name + " in " + f.DeclaringType.FullName);
     }
 
+    // todo: 遇到 Shared 去壳, 遇到不包 Shared 的 class 报错
 
     /// <summary>
-    /// 获取 C++ 的类型声明串
+    /// 获取 LUA 的类型声明串
     /// </summary>
     public static string _GetTypeDecl_Lua(this Type t) {
         if (t._IsNullable()) {
@@ -70,8 +77,6 @@ public static partial class TypeHelpers {
         return (t._IsExternal() ? "" : "") + "_" + t.FullName.Replace(".", "_");
     }
 
-
-
     /// <summary>
     /// 获取 LUA 风格的注释
     /// </summary>
@@ -84,5 +89,4 @@ public static partial class TypeHelpers {
 " + sps + s + @"
 " + sps + "]]";
     }
-
 }
