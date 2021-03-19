@@ -111,6 +111,10 @@ public static partial class TypeHelpers {
             );
     }
 
+    public static bool _IsNullableNumber(this Type t)    
+     => t._IsNullable() && t.GenericTypeArguments[0]._IsNumeric();
+    
+
     /// <summary>
     /// 返回 t 是否为 bool 类型
     /// </summary>
@@ -127,6 +131,7 @@ public static partial class TypeHelpers {
     public static bool _IsNullable(this Type t) {
         return t.IsGenericType && (t.Namespace == nameof(System) || t.Namespace == nameof(TemplateLibrary)) && t.Name == "Nullable`1";
     }
+
 
     /// <summary>
     /// 返回 t 是否为 Tuple<........>
