@@ -47,170 +47,102 @@ CodeGen_" + cfg.name + @" = {
             }
             sb.Append(@"
     Create = function(c)
-        local o = c or {}
         if c == nil then
-            setmetatable(o, " + cn + @")
+            c = {}
+            setmetatable(c, " + cn + @")
         end");
+            if (c._HasBaseType()) {
+                sb.Append(@"
+        " + c.BaseType._GetTypeDecl_Lua() + ".Create(c)");
+            }
 
             var o = c._GetInstance();
             if (o == null) throw new System.Exception("c._GetInstance() == null. c.FullName = " + c.FullName);
 
-            // 基类成员变量逐级展开
-            var fs = c._GetExtractFields();
+            var fs = c._GetFields();
             foreach (var f in fs) {
                 sb.Append(f._GetDesc()._GetComment_Lua(8) + @"
-        o." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + " -- " + f.FieldType._GetTypeDecl_Lua());
+        c." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + " -- " + f.FieldType._GetTypeDecl_Lua());
             }
             sb.Append(@"
         return o
     end,
-    Read = function(self, om)");
+    Read = function(self, om)
+        local d = om.d, o, r");
+            if (c._HasCompatible()) {
+                sb.Append(", len, e");
+            }
             if (c._HasBaseType()) {
                 var bt = c.BaseType._GetTypeDecl_Lua();
                 sb.Append(@"
-        local p = getmetatable( o )
-        p.__proto.FromBBuffer( bb, p )");
+        r = " + bt + @".Read(self, om)
+        if r ~= 0 then
+            return r
+        end");
             }
-            var ftns = new System.Collections.Generic.Dictionary<string, int>();
-            foreach (var f in fs) {
-                var ft = f.FieldType;
-                var ftn = "";
-                if (ft._IsWeak() || ft._IsStruct()) {
-                    throw new System.Exception("LUA does not support weak_ptr or struct");
-                }
-                if (ft._IsNullable()) {
-                    ftn = "Nullable" + ft.GenericTypeArguments[0].Name;
-                }
-                else {
-                    ftn = ft.IsEnum ? ft.GetEnumUnderlyingType().Name : ft._IsNumeric() ? ft.Name : "Object";
-                    if (ft._IsData() || ft._IsString()) ftn = "Object";
-                }
-                if (ftns.ContainsKey(ftn)) ftns[ftn]++;
-                else ftns.Add(ftn, 1);
-            }
-            foreach (var kvp in ftns) {
-                if (kvp.Value > 1) {
-                    sb.Append(@"
-        local Read" + kvp.Key + @" = bb.Read" + kvp.Key);
-                }
-            }
-            foreach (var f in fs) {
-                var ft = f.FieldType;
-                var ftn = "";
-                if (ft._IsWeak() || ft._IsStruct()) {
-                    throw new System.Exception("LUA does not support weak_ptr or struct");
-                }
-                if (ft._IsNullable()) {
-                    ftn = "Nullable" + ft.GenericTypeArguments[0].Name;
-                }
-                else {
-                    ftn = ft.IsEnum ? ft.GetEnumUnderlyingType().Name : ft._IsNumeric() ? ft.Name : "Object";
-                    if (ft._IsData() || ft._IsString()) ftn = "Object";
-                }
-                if (ftns[ftn] > 1) {
-
-                    sb.Append(@"
-        o." + f.Name + @" = Read" + ftn + @"( bb )");
-                }
-                else {
-                    sb.Append(@"
-        o." + f.Name + @" = bb:Read" + ftn + @"()");
-                }
-            }
-            if (c._IsList()) {
-                var fn = "ReadObject";
-                var ct = c.GenericTypeArguments[0];
-                if (ct._IsWeak() || ct._IsStruct()) {
-                    throw new System.Exception("LUA does not support weak_ptr or struct");
-                }
-                if (!ct._IsClass() && !ct._IsData() && !ct._IsString()) {
-                    if (ct.IsEnum) {
-                        var ctn = ct.GetEnumUnderlyingType().Name;
-                        fn = "Read" + ctn;
-                    }
-                    else {
-                        if (ct._IsNullable()) {
-                            fn = "ReadNullable" + ct.GenericTypeArguments[0].Name;
-                        }
-                        else {
-                            fn = "Read" + ct.Name;
-                        }
-                    }
-                }
+            string ss = "";
+            if (c._HasCompatible()) {
                 sb.Append(@"
-		local len = bb:ReadUInt32()
-        local f = BBuffer." + fn + @"
-		for i = 1, len do
-			o[ i ] = f( bb )
-		end");
+        r, len = d:Ru32()
+        if r ~= 0 then return r end
+        e = d:GetOffset() - 4 + len");
+                ss = "    ";
             }
+
+            foreach (var f in fs) {
+                var t = f.FieldType;
+                string func;
+                if (t._IsList()) {     // 当前设计方案仅支持 1 层嵌套
+                    func = t._GetChildType()._GetReadCode_Lua("o[i]");
+                    func = @$"
+{ss}        r, len = d:Rvu()
+{ss}        if len > d:GetLeft() then return -1 end
+{ss}        o = {{}}
+{ss}        self." + f.Name + @$" = o
+{ss}        for i = 1, len do
+{ss}            " + func + @$"
+{ss}            if r ~= 0 then return r end
+{ss}        end";
+                }
+                else {
+                    func = t._GetReadCode_Lua("self." + f.Name);
+                }
+
+                if (c._HasCompatible()) {
+                    sb.Append(@"
+        if d:GetOffset() >= eo then
+            self." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + @"
+        else");
+                }
+
+                sb.Append(@$"
+{ss}        " + func + @$"
+{ss}        if r ~= 0 then return r end");
+
+                if (c._HasCompatible()) {
+                    sb.Append(@"
+        end");
+                }
+            }
+
+            if (c._HasCompatible()) {
+                sb.Append(@"
+        if d:GetOffset() > e then return -1 end
+        d:SetOffset(e)");
+            }
+
             sb.Append(@"
     end,
     Write = function(self, om)");
-            if (c._HasBaseType()) {
-                var bt = c.BaseType._GetTypeDecl_Lua();
-                sb.Append(@"
-        local p = getmetatable( o )
-        p.__proto.ToBBuffer( bb, p )");
-            }
-            foreach (var kvp in ftns) {
-                if (kvp.Value > 1) {
-                    sb.Append(@"
-        local Write" + kvp.Key + @" = bb.Write" + kvp.Key);
-                }
-            }
-            foreach (var f in fs) {
-                var ft = f.FieldType;
-                var ftn = "";
-                if (ft._IsWeak() || ft._IsStruct()) {
-                    throw new System.Exception("LUA does not support weak_ptr or struct");
-                }
-                if (ft._IsNullable()) {
-                    ftn = "Nullable" + ft.GenericTypeArguments[0].Name;
-                }
-                else {
-                    ftn = ft.IsEnum ? ft.GetEnumUnderlyingType().Name : ft._IsNumeric() ? ft.Name : "Object";
-                    if (ft._IsData() || ft._IsString()) ftn = "Object";
-                }
-                if (ftns[ftn] > 1) {
-                    sb.Append(@"
-        Write" + ftn + @"( bb, o." + f.Name + @" )");
-                }
-                else {
-                    sb.Append(@"
-        bb:Write" + ftn + @"( o." + f.Name + @" )");
-                }
-            }
-            if (c._IsList()) {
-                var fn = "WriteObject";
-                var ct = c.GenericTypeArguments[0];
-                if (!ct._IsClass() && !ct._IsData() && !ct._IsString()) {
-                    if (ct.IsEnum) {
-                        var ctn = ct.GetEnumUnderlyingType().Name;
-                        fn = "Write" + ctn;
-                    }
-                    else {
-                        var ctn = ct.Name;
-                        fn = "Write" + ctn;
-                    }
 
-                }
-                sb.Append(@"
-        local len = #o
-		bb:WriteUInt32( len )
-        local f = BBuffer." + fn + @"
-        for i = 1, len do
-			f( bb, o[ i ]" + @" )
-		end");
-            }
+            // todo
+
             sb.Append(@"
     end
 }
-BBuffer.Register( " + cn + @" )");
+" + cn + @".__index = " + cn + @"
+");
         }
-
-        // 临时方案
-        sb.Replace("`1", "");
 
         sb._WriteToFile(System.IO.Path.Combine(cfg.outdir_lua, cfg.name + ".lua"));
     }
