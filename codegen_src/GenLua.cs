@@ -41,6 +41,9 @@ CodeGen_" + cfg.name + @" = {
             sb.Append(c._GetDesc()._GetComment_Lua(0) + @"
 " + cn + @" = {
     typeName = """ + cn + @""",");
+            if (c._HasBaseType()) {
+                sb.Append(" -- : " + c.BaseType._GetTypeDecl_Lua());
+            }
             if (c._IsClass()) {
                 sb.Append(@"
     typeId = " + c._GetTypeId() + @",");
@@ -62,7 +65,7 @@ CodeGen_" + cfg.name + @" = {
             var fs = c._GetFields();
             foreach (var f in fs) {
                 sb.Append(f._GetDesc()._GetComment_Lua(8) + @"
-        c." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + " -- " + f.FieldType._GetTypeDecl_Lua());
+        c." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + " -- " + f.FieldType._GetTypeDesc_Lua());
             }
             sb.Append(@"
         return o
@@ -75,6 +78,7 @@ CodeGen_" + cfg.name + @" = {
             if (c._HasBaseType()) {
                 var bt = c.BaseType._GetTypeDecl_Lua();
                 sb.Append(@"
+        -- base read
         r = " + bt + @".Read(self, om)
         if r ~= 0 then
             return r
@@ -83,6 +87,7 @@ CodeGen_" + cfg.name + @" = {
             string ss = "";
             if (c._HasCompatible()) {
                 sb.Append(@"
+        -- compatible handle
         r, len = d:Ru32()
         if r ~= 0 then return r end
         e = d:GetOffset() - 4 + len");
@@ -94,8 +99,7 @@ CodeGen_" + cfg.name + @" = {
                 string func;
                 if (t._IsList()) {     // 当前设计方案仅支持 1 层嵌套
                     func = t._GetChildType()._GetReadCode_Lua("o[i]");
-                    func = @$"
-{ss}        r, len = d:Rvu()
+                    func = @$"r, len = d:Rvu()
 {ss}        if len > d:GetLeft() then return -1 end
 {ss}        o = {{}}
 {ss}        self." + f.Name + @$" = o
@@ -108,12 +112,18 @@ CodeGen_" + cfg.name + @" = {
                     func = t._GetReadCode_Lua("self." + f.Name);
                 }
 
+                sb.Append(@"
+        -- " + f.Name);
+
                 if (c._HasCompatible()) {
                     sb.Append(@"
         if d:GetOffset() >= eo then
             self." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + @"
         else");
                 }
+
+                if (string.IsNullOrEmpty(func))
+                    throw new System.Exception("!!!");
 
                 sb.Append(@$"
 {ss}        " + func + @$"
@@ -127,6 +137,7 @@ CodeGen_" + cfg.name + @" = {
 
             if (c._HasCompatible()) {
                 sb.Append(@"
+        -- compatible handle
         if d:GetOffset() > e then return -1 end
         d:SetOffset(e)");
             }

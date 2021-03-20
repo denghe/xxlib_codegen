@@ -56,7 +56,7 @@ public static partial class TypeHelpers {
     /// </summary>
     public static string _GetTypeDecl_Lua(this Type t) {
         if (t._IsNullable()) {
-            return "Nullable" + _GetTypeDecl_Lua(t.GenericTypeArguments[0]);
+            return "Nullable_" + _GetTypeDecl_Lua(t.GenericTypeArguments[0]);
         }
         else if (t._IsWeak()) {
             return "Weak_" + _GetTypeDecl_Lua(t.GenericTypeArguments[0]);
@@ -74,7 +74,32 @@ public static partial class TypeHelpers {
         else if (t.Namespace == nameof(System) || t.Namespace == nameof(TemplateLibrary)) {
             return t.Name;
         }
-        return (t._IsExternal() ? "" : "") + "_" + t.FullName.Replace(".", "_");
+        return t.FullName.Replace(".", "_");
+    }
+
+    /// <summary>
+    /// 获取 LUA 的 field type 备注
+    /// </summary>
+    public static string _GetTypeDesc_Lua(this Type t) {
+        if (t._IsNullable()) {
+            return "Nullable<" + _GetTypeDesc_Lua(t.GenericTypeArguments[0]) + ">";
+        }
+        else if (t._IsData()) {
+            return "XxData";
+        }
+        else if (t._IsWeak()) {
+            return "Weak<" + _GetTypeDesc_Lua(t.GenericTypeArguments[0]) + ">";
+        }
+        else if (t._IsShared()) {
+            return "Shared<" + _GetTypeDesc_Lua(t.GenericTypeArguments[0]) + ">";
+        }
+        else if (t._IsList()) {
+            return "List<" + _GetTypeDesc_Lua(t.GenericTypeArguments[0]) + ">";
+        }
+        else if (t.Namespace == nameof(System) || t.Namespace == nameof(TemplateLibrary)) {
+            return t.Name;
+        }
+        return t.FullName;
     }
 
     public static string _GetReadCode_Lua(this Type t, string varName) {
@@ -91,7 +116,7 @@ public static partial class TypeHelpers {
             return "r, " + varName + " = om:Read()";
         }
         else if (t._IsClass() || t._IsStruct()) {
-            return varName + @" = .Create(); r = " + varName + ":Read(om)";
+            return varName + @" = " + t._GetTypeDesc_Lua() + @".Create(); r = " + varName + ":Read(om)";
         }
         else if (t._IsNullable()) {
             var bak = t;
@@ -106,9 +131,7 @@ public static partial class TypeHelpers {
                 return "r, " + varName + " = d:Rn" + t._GetRWFuncName_Lua() + "()";
             }
             else if (t._IsClass() || t._IsStruct()) {
-                // todo: 先读标志位 然后再看情况 Create 并 Read
-                //return varName + @" = .Create(); r = " + varName + ":Read(om)";
-                return "";
+                return "r, o = d:Ru8(); if r ~= 0 then return r end; if o == 0 then " + varName + " = null else " + varName + @" = " + t._GetTypeDesc_Lua() + @".Create(); r = " + varName + ":Read(om) end";
             }
             else
                 throw new System.Exception("unsupported type: " + bak.FullName);
