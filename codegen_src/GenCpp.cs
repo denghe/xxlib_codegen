@@ -439,192 +439,50 @@ namespace " + ns + "{");
             }
 
             var o = c._GetInstance();
-
-            //            sb.Append(@"
-            //" + ss + @"" + c.Name + @"::" + c.Name + @"(" + c.Name + @"&& o) noexcept {
-            //" + ss + @"    this->operator=(std::move(o));
-            //" + ss + @"}
-            //" + ss + @"" + c.Name + @"& " + c.Name + @"::operator=(" + c.Name + @"&& o) noexcept {");
-            //            if (c._HasBaseType()) {
-            //                var bt = c.BaseType;
-            //                var btn = bt._GetTypeDecl_Cpp();
-            //                sb.Append(@"
-            //" + ss + @"    this->" + (c._IsStruct() ? btn : "BaseType") + "::operator=(std::move(o));");
-            //            }
-
             var fs = c._GetFields();
-            //            foreach (var f in fs) {
-            //                var ft = f.FieldType;
-            //                sb.Append(@"
-            //" + ss + @"    std::swap(this->" + f.Name + ", o." + f.Name + ");");
-            //            }
-            //            sb.Append(@"
-            //" + ss + @"    return *this;
-            //" + ss + @"}");
 
-            if (c._IsClass()) {
-
-                sb.Append(@"
+            sb.Append(@"
 " + ss + @"void " + c.Name + @"::Write(::xx::ObjManager& om) const {");
 
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-" + ss + @"    this->BaseType::Write(om);");
-                }
-
-                if (c._Has<TemplateLibrary.Compatible>()) {
-                    sb.Append(@"
-" + ss + @"    auto bak = om.data->WriteJump(sizeof(uint32_t));");
-                }
-
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-" + ss + @"    om.Write(this->" + f.Name + ");");
-                }
-
-                if (c._Has<TemplateLibrary.Compatible>()) {
-                    sb.Append(@"
-" + ss + @"    om.data->WriteFixedAt(bak, (uint32_t)(om.data->len - bak));");
-                }
-
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
                 sb.Append(@"
+" + ss + @"    this->BaseType::Write(om);");
+            }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+" + ss + @"    auto bak = om.data->WriteJump(sizeof(uint32_t));");
+            }
+
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+" + ss + @"    om.Write(this->" + f.Name + ");");
+            }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+" + ss + @"    om.data->WriteFixedAt(bak, (uint32_t)(om.data->len - bak));");
+            }
+
+            sb.Append(@"
 " + ss + @"}");
 
-                sb.Append(@"
+            sb.Append(@"
 " + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om) {");
 
-                if (c._HasBaseType()) {
-                    sb.Append(@"
+            if (c._HasBaseType()) {
+                sb.Append(@"
 " + ss + @"    if (int r = this->BaseType::Read(om)) return r;");
-                }
+            }
 
-                if (c._Has<TemplateLibrary.Compatible>()) {
-                    sb.Append(@"
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
 " + ss + @"    uint32_t siz;
 " + ss + @"    if (int r = om.data->ReadFixed(siz)) return r;
 " + ss + @"    auto endOffset = om.data->offset - sizeof(siz) + siz;
 ");
-                    foreach (var f in fs) {
-                        var ft = f.FieldType;
-
-                        string dv = "";
-                        var v = f.GetValue(f.IsStatic ? null : o);
-                        dv = ft._GetDefaultValueDecl_Cpp(v);
-                        if (dv != "") {
-                            dv = "this->" + f.Name + " = " + dv;
-                        }
-                        else {
-                            dv = "om.SetDefaultValue(this->" + f.Name + ")";
-                        }
-
-                        sb.Append(@"
-" + ss + @"    if (om.data->offset >= endOffset) " + dv + @";
-" + ss + @"    else if (int r = om.Read(this->" + f.Name + @")) return r;");
-                    }
-
-                    sb.Append(@"
-
-" + ss + @"    if (om.data->offset > endOffset) return __LINE__;
-" + ss + @"    else om.data->offset = endOffset;");
-                }
-                else {
-                    foreach (var f in fs) {
-                        sb.Append(@"
-" + ss + @"    if (int r = om.Read(this->" + f.Name + @")) return r;");
-                    }
-                }
-
-                sb.Append(@"
-" + ss + @"    return 0;
-" + ss + @"}");
-                sb.Append(@"
-" + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om) const {
-#ifndef XX_DISABLE_APPEND
-" + ss + @"    om.Append(""{\""__typeId__\"":"", this->ObjBase::GetTypeId());");
-                sb.Append(@"
-" + ss + @"    this->AppendCore(om);
-" + ss + @"    om.str->push_back('}');
-#endif
-" + ss + @"}
-" + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om) const {
-#ifndef XX_DISABLE_APPEND");
-
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-" + ss + @"    this->BaseType::AppendCore(om);");
-                }
-
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-" + ss + @"    om.Append("",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
-                }
-                sb.Append(@"
-#endif
-" + ss + @"}");
-
-                sb.Append(@"
-" + ss + @"void " + c.Name + @"::Clone(::xx::ObjManager& om, void* const &tar) const {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-" + ss + @"    this->BaseType::Clone(om, tar);");
-                }
-                if (fs.Count > 0) {
-                    sb.Append(@"
-" + ss + @"    auto out = (" + c._GetTypeDecl_Cpp() + @"*)tar;");
-                }
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-" + ss + @"    om.Clone_(this->" + f.Name + ", out->" + f.Name + ");");
-                }
-                sb.Append(@"
-" + ss + @"}");
-
-                sb.Append(@"
-" + ss + @"int " + c.Name + @"::RecursiveCheck(::xx::ObjManager& om) const {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-" + ss + @"    if (int r = this->BaseType::RecursiveCheck(om)) return r;");
-                }
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    // todo: 跳过不含有 Shared 的类型的生成
-                    sb.Append(@"
-" + ss + @"    if (int r = om.RecursiveCheck(this->" + f.Name + ")) return r;");
-                }
-                sb.Append(@"
-" + ss + @"    return 0;
-" + ss + @"}");
-
-                sb.Append(@"
-" + ss + @"void " + c.Name + @"::RecursiveReset(::xx::ObjManager& om) {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-" + ss + @"    this->BaseType::RecursiveReset(om);");
-                }
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-" + ss + @"    om.RecursiveReset(this->" + f.Name + ");");
-                }
-                sb.Append(@"
-" + ss + @"}");
-
-
-                sb.Append(@"
-" + ss + @"void " + c.Name + @"::SetDefaultValue(::xx::ObjManager& om) {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-" + ss + @"    this->BaseType::SetDefaultValue(om);");
-                }
                 foreach (var f in fs) {
                     var ft = f.FieldType;
 
@@ -639,13 +497,129 @@ namespace " + ns + "{");
                     }
 
                     sb.Append(@"
-" + ss + @"    " + dv + @";");
+" + ss + @"    if (om.data->offset >= endOffset) " + dv + @";
+" + ss + @"    else if (int r = om.Read(this->" + f.Name + @")) return r;");
                 }
+
                 sb.Append(@"
+
+" + ss + @"    if (om.data->offset > endOffset) return __LINE__;
+" + ss + @"    else om.data->offset = endOffset;");
+            }
+            else {
+                foreach (var f in fs) {
+                    sb.Append(@"
+" + ss + @"    if (int r = om.Read(this->" + f.Name + @")) return r;");
+                }
+            }
+
+            sb.Append(@"
+" + ss + @"    return 0;
+" + ss + @"}");
+            sb.Append(@"
+" + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om) const {
+#ifndef XX_DISABLE_APPEND
+" + ss + @"    om.Append(""{\""__typeId__\"":"", this->ObjBase::GetTypeId());");
+            sb.Append(@"
+" + ss + @"    this->AppendCore(om);
+" + ss + @"    om.str->push_back('}');
+#endif
+" + ss + @"}
+" + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om) const {
+#ifndef XX_DISABLE_APPEND");
+
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    this->BaseType::AppendCore(om);");
+            }
+
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+" + ss + @"    om.Append("",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
+            }
+            sb.Append(@"
+#endif
+" + ss + @"}");
+
+            sb.Append(@"
+" + ss + @"void " + c.Name + @"::Clone(::xx::ObjManager& om, void* const &tar) const {");
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    this->BaseType::Clone(om, tar);");
+            }
+            if (fs.Count > 0) {
+                sb.Append(@"
+" + ss + @"    auto out = (" + c._GetTypeDecl_Cpp() + @"*)tar;");
+            }
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+" + ss + @"    om.Clone_(this->" + f.Name + ", out->" + f.Name + ");");
+            }
+            sb.Append(@"
+" + ss + @"}");
+
+            sb.Append(@"
+" + ss + @"int " + c.Name + @"::RecursiveCheck(::xx::ObjManager& om) const {");
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    if (int r = this->BaseType::RecursiveCheck(om)) return r;");
+            }
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                // todo: 跳过不含有 Shared 的类型的生成
+                sb.Append(@"
+" + ss + @"    if (int r = om.RecursiveCheck(this->" + f.Name + ")) return r;");
+            }
+            sb.Append(@"
+" + ss + @"    return 0;
+" + ss + @"}");
+
+            sb.Append(@"
+" + ss + @"void " + c.Name + @"::RecursiveReset(::xx::ObjManager& om) {");
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    this->BaseType::RecursiveReset(om);");
+            }
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+" + ss + @"    om.RecursiveReset(this->" + f.Name + ");");
+            }
+            sb.Append(@"
 " + ss + @"}");
 
 
+            sb.Append(@"
+" + ss + @"void " + c.Name + @"::SetDefaultValue(::xx::ObjManager& om) {");
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    this->BaseType::SetDefaultValue(om);");
             }
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+
+                string dv = "";
+                var v = f.GetValue(f.IsStatic ? null : o);
+                dv = ft._GetDefaultValueDecl_Cpp(v);
+                if (dv != "") {
+                    dv = "this->" + f.Name + " = " + dv;
+                }
+                else {
+                    dv = "om.SetDefaultValue(this->" + f.Name + ")";
+                }
+
+                sb.Append(@"
+" + ss + @"    " + dv + @";");
+            }
+            sb.Append(@"
+" + ss + @"}");
 
             // namespace }
             if (ss != "") {
