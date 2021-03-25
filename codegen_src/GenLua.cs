@@ -49,29 +49,29 @@ CodeGen_" + cfg.name + @" = {
     typeId = " + c._GetTypeId() + @",");
             }
             sb.Append(@"
-    Create = function(c)
-        if c == nil then
-            c = {}
-            setmetatable(c, " + cn + @")
+    Create = function(o)
+        if o == nil then
+            o = {}
+            setmetatable(o, " + cn + @")
         end");
             if (c._HasBaseType()) {
                 sb.Append(@"
-        " + c.BaseType._GetTypeDecl_Lua() + ".Create(c)");
+        " + c.BaseType._GetTypeDecl_Lua() + ".Create(o)");
             }
 
             var o = c._GetInstance();
-            if (o == null) throw new System.Exception("c._GetInstance() == null. c.FullName = " + c.FullName);
+            if (o == null) throw new System.Exception("o._GetInstance() == null. o.FullName = " + c.FullName);
 
             var fs = c._GetFields();
             foreach (var f in fs) {
                 sb.Append(f._GetDesc()._GetComment_Lua(8) + @"
-        c." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + " -- " + f.FieldType._GetTypeDesc_Lua());
+        o." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + " -- " + f.FieldType._GetTypeDesc_Lua());
             }
             sb.Append(@"
         return o
     end,
     Read = function(self, om)
-        local d = om.d, r");
+        local d = om.d, r, n");
             if(fs.Exists(f=>f.FieldType._IsList())) {
                 sb.Append(", o");
             }
@@ -143,6 +143,7 @@ CodeGen_" + cfg.name + @" = {
             }
 
             sb.Append(@"
+        return 0
     end,
     Write = function(self, om)
         local d = om.d");
