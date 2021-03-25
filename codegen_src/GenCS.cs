@@ -97,7 +97,15 @@ $@"
                 throw new Exception($"static Field Not Supported class:{c.Name} field:{p.Name}");
 
 
+
             if (pt._IsStruct())
+            {
+                sb.Append(p._GetDesc()._GetComment_CSharp(8) +
+$@"
+        public {ptn} {p.Name} {{ get; set; }} = new {ptn}();
+");
+            }
+            else if(pt._IsList()&& pt.GetGenericArguments()[0]._IsStruct())
             {
                 sb.Append(p._GetDesc()._GetComment_CSharp(8) +
 $@"
@@ -137,7 +145,7 @@ $@"
         if (need_compatible)
         {
             sb.Append($@"
-            if ((err = data.ReadFiexd(out uint siz)) != 0) return err;
+            if ((err = data.ReadFixed(out uint siz)) != 0) return err;
             int endoffset = (int)(data.Offset - sizeof(uint) + siz);
 ");
         }
@@ -158,13 +166,30 @@ $@"
                 else if (f.FieldType._IsNullable() && !f.FieldType._IsNullableNumber())
                 {
                     sb.Append($@"
-            if ((err = data.ReadFiexd(out byte have_{f.Name.ToLower()})) == 0)
+            if ((err = data.ReadFixed(out byte have_{f.Name.ToLower()})) == 0)
             {{
                 if (have_{f.Name.ToLower()} == 1)
                 {{
                     this.{f.Name} = new {f.FieldType._GetTypeDecl_Csharp()}();
                     if ((err = this.{f.Name}.Read(om, data)) != 0)
                         return err;
+                }}
+            }}
+            else return err;
+");
+                }
+                else if (f.FieldType._IsList() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+                {
+                    var tn = f.FieldType.GetGenericArguments()[0]._GetTypeDecl_Csharp();
+                    sb.Append($@"
+            if ((err = data.ReadVarInteger(out uint {f.Name.ToLower()}_len)) == 0)
+            {{
+                for (int i = 0; i < {f.Name.ToLower()}_len; i++)
+                {{
+                    var p = new {tn}();
+                    if ((err = p.Read(om, data)) == 0)
+                        this.{f.Name}.Add(p);
+                    else return err;
                 }}
             }}
             else return err;
@@ -192,7 +217,7 @@ $@"
                 else if (f.FieldType._IsNullable()&&!f.FieldType._IsNullableNumber())
                 {
                     sb.Append($@"
-            if (data.Offset < endoffset && (err = data.ReadFiexd(out byte have_{f.Name.ToLower()})) == 0)
+            if (data.Offset < endoffset && (err = data.ReadFixed(out byte have_{f.Name.ToLower()})) == 0)
             {{
                 if (have_{f.Name.ToLower()} == 1)
                 {{
@@ -203,6 +228,26 @@ $@"
             }}
             else
                 return err;
+");
+                }
+                else if (f.FieldType._IsList() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+                {
+                    var tn = f.FieldType.GetGenericArguments()[0]._GetTypeDecl_Csharp();
+                    sb.Append($@"
+            if (data.Offset < endoffset)
+            {{
+                if ((err = data.ReadVarInteger(out uint {f.Name.ToLower()}_len)) == 0)
+                {{
+                    for (int i = 0; i < {f.Name.ToLower()}_len; i++)
+                    {{
+                        var p = new {tn}();
+                        if ((err = p.Read(om, data)) == 0)
+                            this.{f.Name}.Add(p);
+                        else return err;
+                    }}
+                }}
+                else return err;
+            }}
 ");
                 }
                 else
@@ -253,7 +298,7 @@ $@"
         {
             sb.Append($@"
             var bak = data.Length;
-            data.WriteFiexd(sizeof(uint));");
+            data.WriteFixed(sizeof(uint));");
         }
 
 
@@ -268,12 +313,20 @@ $@"
             {
                 sb.Append($@"
             if (this.{f.Name} is null)
-               data.WriteFiexd((byte)0);
+               data.WriteFixed((byte)0);
             else
             {{
-                data.WriteFiexd((byte)1);
+                data.WriteFixed((byte)1);
                 this.{f.Name}.Write(om, data);
             }}");
+            }
+            else if (f.FieldType._IsList() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+            {
+                sb.Append($@"
+            data.WriteVarInteger((uint)this.{f.Name}.Count);
+            foreach (var item in this.{f.Name})
+                item.Write(om, data);
+");
             }
             else
             {
@@ -285,7 +338,7 @@ $@"
         if (need_compatible)
         {
             sb.Append(@"
-            data.WriteFiexdAt(bak, (uint)(data.Length - bak));
+            data.WriteFixedAt(bak, (uint)(data.Length - bak));
         }     
 
     }");
@@ -354,6 +407,13 @@ $@"
         public {ptn} {p.Name} {{ get; set; }} = new {ptn}();
 ");
             }
+            else if (pt._IsList() && pt.GetGenericArguments()[0]._IsStruct())
+            {
+                sb.Append(p._GetDesc()._GetComment_CSharp(8) +
+$@"
+        public {ptn} {p.Name} {{ get; set; }} = new {ptn}();
+");
+            }
             else
             {
 
@@ -390,7 +450,7 @@ $@"
         if (need_compatible)
         {
             sb.Append($@"
-            if ((err = data.ReadFiexd(out uint siz)) != 0) return err;
+            if ((err = data.ReadFixed(out uint siz)) != 0) return err;
             int endoffset = (int)(data.Offset - sizeof(uint) + siz);
 ");
         }
@@ -411,13 +471,30 @@ $@"
                 else if (f.FieldType._IsNullable() && !f.FieldType._IsNullableNumber())
                 {
                     sb.Append($@"
-            if ((err = data.ReadFiexd(out byte have_{f.Name.ToLower()})) == 0)
+            if ((err = data.ReadFixed(out byte have_{f.Name.ToLower()})) == 0)
             {{
                 if (have_{f.Name.ToLower()} == 1)
                 {{
                     this.{f.Name} = new {f.FieldType._GetTypeDecl_Csharp()}();
                     if ((err = this.{f.Name}.Read(om, data)) != 0)
                         return err;
+                }}
+            }}
+            else return err;
+");
+                }
+                else if (f.FieldType._IsList() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+                {
+                    var tn = f.FieldType.GetGenericArguments()[0]._GetTypeDecl_Csharp();
+                    sb.Append($@"
+            if ((err = data.ReadVarInteger(out uint {f.Name.ToLower()}_len)) == 0)
+            {{
+                for (int i = 0; i < {f.Name.ToLower()}_len; i++)
+                {{
+                    var p = new {tn}();
+                    if ((err = p.Read(om, data)) == 0)
+                        this.{f.Name}.Add(p);
+                    else return err;
                 }}
             }}
             else return err;
@@ -444,7 +521,7 @@ $@"
                 else if (f.FieldType._IsNullable() && !f.FieldType._IsNullableNumber())
                 {
                     sb.Append($@"
-            if (data.Offset < endoffset && (err = data.ReadFiexd(out byte have_{f.Name.ToLower()})) == 0)
+            if (data.Offset < endoffset && (err = data.ReadFixed(out byte have_{f.Name.ToLower()})) == 0)
             {{
                 if (have_{f.Name.ToLower()} == 1)
                 {{
@@ -455,6 +532,26 @@ $@"
             }}
             else
                 return err;
+");
+                }
+                else if (f.FieldType._IsList() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+                {
+                    var tn = f.FieldType.GetGenericArguments()[0]._GetTypeDecl_Csharp();
+                    sb.Append($@"
+            if (data.Offset < endoffset)
+            {{
+                if ((err = data.ReadVarInteger(out uint {f.Name.ToLower()}_len)) == 0)
+                {{
+                    for (int i = 0; i < {f.Name.ToLower()}_len; i++)
+                    {{
+                        var p = new {tn}();
+                        if ((err = p.Read(om, data)) == 0)
+                            this.{f.Name}.Add(p);
+                        else return err;
+                    }}
+                }}
+                else return err;
+            }}
 ");
                 }
                 else
@@ -505,7 +602,7 @@ $@"
         {
             sb.Append($@"
             var bak = data.Length;
-            data.WriteFiexd(sizeof(uint));");
+            data.WriteFixed(sizeof(uint));");
         }
 
 
@@ -520,12 +617,20 @@ $@"
             {
                 sb.Append($@"
             if (this.{f.Name} is null)
-               data.WriteFiexd((byte)0);
+               data.WriteFixed((byte)0);
             else
             {{
-                data.WriteFiexd((byte)1);
+                data.WriteFixed((byte)1);
                 this.{f.Name}.Write(om, data);
             }}");
+            }
+            else if (f.FieldType._IsList() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+            {
+                sb.Append($@"
+            data.WriteVarInteger((uint)this.{f.Name}.Count);
+            foreach (var item in this.{f.Name})
+                item.Write(om, data);
+");
             }
             else
             {
@@ -537,7 +642,7 @@ $@"
         if (need_compatible)
         {
             sb.Append(@"
-            data.WriteFiexdAt(bak, (uint)(data.Length - bak));
+            data.WriteFixedAt(bak, (uint)(data.Length - bak));
         }
 
         public override string ToString()            
