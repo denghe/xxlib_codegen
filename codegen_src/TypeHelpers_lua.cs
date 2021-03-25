@@ -139,6 +139,43 @@ public static partial class TypeHelpers {
         throw new Exception("unsupported type");
     }
 
+    public static string _GetWriteCode_Lua(this Type t, string varName) {
+        if (t._IsData()) {
+            return "d:Wdata(" + varName + ")";
+        }
+        else if (t._IsString()) {
+            return "d:Wstr(" + varName + ")";
+        }
+        else if (t._IsNumeric() || t.IsEnum) {
+            return "d:W" + t._GetRWFuncName_Lua() + "(" + varName + ")";
+        }
+        else if (t._IsWeak() || t._IsShared()) {
+            return "om:Write(" + varName + ")";
+        }
+        else if (t._IsClass() || t._IsStruct()) {
+            return varName + @":Write(om)";
+        }
+        else if (t._IsNullable()) {
+            var bak = t;
+            t = t._GetChildType();
+            if (t._IsData()) {
+                return "d:Wndata(" + varName + ")";
+            }
+            else if (t._IsString()) {
+                return "d:Wnstr(" + varName + ")";
+            }
+            else if (t._IsNumeric() || t.IsEnum) {
+                return "d:Wn" + t._GetRWFuncName_Lua() + "(" + varName + ")";
+            }
+            else if (t._IsClass() || t._IsStruct()) {
+                return "if " + varName + " == null then d:Wu8(0) else d:Wu8(1); " + varName + ":Write(om) end";
+            }
+            else
+                throw new System.Exception("unsupported type: " + bak.FullName);
+        }
+        throw new Exception("unsupported type");
+    }
+
     /// <summary>
     /// 获取 field read write 的 d:R/W ??? 部分. 仅针对 Numeric & Enum
     /// </summary>
