@@ -519,7 +519,7 @@ namespace " + ns + "{");
             sb.Append(@"
 " + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om) const {
 #ifndef XX_DISABLE_APPEND
-" + ss + @"    om.Append(""{\""__typeId__\"":"", this->ObjBase::GetTypeId());");
+" + ss + @"    om.Append(""{\""__typeId__\"":" + c._GetTypeId() + @""");");
             sb.Append(@"
 " + ss + @"    this->AppendCore(om);
 " + ss + @"    om.str->push_back('}');

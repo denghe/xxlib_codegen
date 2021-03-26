@@ -104,10 +104,10 @@ public static partial class TypeHelpers {
 
     public static string _GetReadCode_Lua(this Type t, string varName) {
         if (t._IsData()) {
-            return "r, " + varName + " = om:Rdata()";
+            return "r, " + varName + " = d:Rdata()";
         }
         else if (t._IsString()) {
-            return "r, " + varName + " = om:Rstr()";
+            return "r, " + varName + " = d:Rstr()";
         }
         else if (t._IsNumeric() || t.IsEnum) {
             return "r, " + varName + " = d:R" + t._GetRWFuncName_Lua() + "()";
@@ -125,13 +125,50 @@ public static partial class TypeHelpers {
                 return "r, " + varName + " = d:Rndata()";
             }
             else if (t._IsString()) {
-                return "r, " + varName + " = om:Rnstr()";
+                return "r, " + varName + " = d:Rnstr()";
             }
             else if (t._IsNumeric() || t.IsEnum) {
                 return "r, " + varName + " = d:Rn" + t._GetRWFuncName_Lua() + "()";
             }
             else if (t._IsClass() || t._IsStruct()) {
-                return "r, o = d:Ru8(); if r ~= 0 then return r end; if o == 0 then " + varName + " = null else " + varName + @" = " + t._GetTypeDesc_Lua() + @".Create(); r = " + varName + ":Read(om) end";
+                return "r, n = d:Ru8(); if r ~= 0 then return r end; if n == 0 then " + varName + " = null else " + varName + @" = " + t._GetTypeDesc_Lua() + @".Create(); r = " + varName + ":Read(om) end";
+            }
+            else
+                throw new System.Exception("unsupported type: " + bak.FullName);
+        }
+        throw new Exception("unsupported type");
+    }
+
+    public static string _GetWriteCode_Lua(this Type t, string varName) {
+        if (t._IsData()) {
+            return "d:Wdata(" + varName + ")";
+        }
+        else if (t._IsString()) {
+            return "d:Wstr(" + varName + ")";
+        }
+        else if (t._IsNumeric() || t.IsEnum) {
+            return "d:W" + t._GetRWFuncName_Lua() + "(" + varName + ")";
+        }
+        else if (t._IsWeak() || t._IsShared()) {
+            return "om:Write(" + varName + ")";
+        }
+        else if (t._IsClass() || t._IsStruct()) {
+            return varName + @":Write(om)";
+        }
+        else if (t._IsNullable()) {
+            var bak = t;
+            t = t._GetChildType();
+            if (t._IsData()) {
+                return "d:Wndata(" + varName + ")";
+            }
+            else if (t._IsString()) {
+                return "d:Wnstr(" + varName + ")";
+            }
+            else if (t._IsNumeric() || t.IsEnum) {
+                return "d:Wn" + t._GetRWFuncName_Lua() + "(" + varName + ")";
+            }
+            else if (t._IsClass() || t._IsStruct()) {
+                return "if " + varName + " == null then d:Wu8(0) else d:Wu8(1); " + varName + ":Write(om) end";
             }
             else
                 throw new System.Exception("unsupported type: " + bak.FullName);
@@ -150,21 +187,21 @@ public static partial class TypeHelpers {
                 case "UInt8":
                     return "u8";
                 case "UInt16":
-                    return "u16";
+                    return "vu";// "u16";
                 case "UInt32":
-                    return "u32";
+                    return "vu";// "u32";
                 case "UInt64":
-                    return "u64";
+                    return "vu";// "u64";
                 case "SByte":
                     return "i8";
                 case "Int8":
                     return "i8";
                 case "Int16":
-                    return "i16";
+                    return "vi";// "i16";
                 case "Int32":
-                    return "i32";
+                    return "vi";// "i32";
                 case "Int64":
-                    return "i64";
+                    return "vi";// "i64";
                 case "Double":
                     return "d";
                 case "Float":
@@ -184,17 +221,17 @@ public static partial class TypeHelpers {
                 case "SByte":
                     return "i8";
                 case "UInt16":
-                    return "u16";
+                    return "vu";// "u16";
                 case "Int16":
-                    return "i16";
+                    return "vi";// "i16";
                 case "UInt32":
-                    return "u32";
+                    return "vu";// "u32";
                 case "Int32":
-                    return "i32";
+                    return "vi";// "i32";
                 case "UInt64":
-                    return "u64";
+                    return "vu";// "u64";
                 case "Int64":
-                    return "i64";
+                    return "vi";// "i64";
             }
         }
         throw new Exception("unsupported type");

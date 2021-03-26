@@ -49,29 +49,32 @@ CodeGen_" + cfg.name + @" = {
     typeId = " + c._GetTypeId() + @",");
             }
             sb.Append(@"
-    Create = function(c)
-        if c == nil then
-            c = {}
-            setmetatable(c, " + cn + @")
+    Create = function(o)
+        if o == nil then
+            o = {}
+            setmetatable(o, " + cn + @")
         end");
             if (c._HasBaseType()) {
                 sb.Append(@"
-        " + c.BaseType._GetTypeDecl_Lua() + ".Create(c)");
+        " + c.BaseType._GetTypeDecl_Lua() + ".Create(o)");
             }
 
             var o = c._GetInstance();
-            if (o == null) throw new System.Exception("c._GetInstance() == null. c.FullName = " + c.FullName);
+            if (o == null) throw new System.Exception("o._GetInstance() == null. o.FullName = " + c.FullName);
 
             var fs = c._GetFields();
             foreach (var f in fs) {
                 sb.Append(f._GetDesc()._GetComment_Lua(8) + @"
-        c." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + " -- " + f.FieldType._GetTypeDesc_Lua());
+        o." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + " -- " + f.FieldType._GetTypeDesc_Lua());
             }
             sb.Append(@"
         return o
     end,
     Read = function(self, om)
-        local d = om.d, o, r");
+        local d = om.d, r, n");
+            if(fs.Exists(f=>f.FieldType._IsList())) {
+                sb.Append(", o");
+            }
             if (c._HasCompatible()) {
                 sb.Append(", len, e");
             }
@@ -80,9 +83,7 @@ CodeGen_" + cfg.name + @" = {
                 sb.Append(@"
         -- base read
         r = " + bt + @".Read(self, om)
-        if r ~= 0 then
-            return r
-        end");
+        if r ~= 0 then return r end");
             }
             string ss = "";
             if (c._HasCompatible()) {
@@ -98,13 +99,12 @@ CodeGen_" + cfg.name + @" = {
                 var t = f.FieldType;
                 string func;
                 if (t._IsList()) {     // 当前设计方案仅支持 1 层嵌套
-                    func = t._GetChildType()._GetReadCode_Lua("o[i]");
                     func = @$"r, len = d:Rvu()
 {ss}        if len > d:GetLeft() then return -1 end
 {ss}        o = {{}}
-{ss}        self." + f.Name + @$" = o
+{ss}        self.{f.Name} = o
 {ss}        for i = 1, len do
-{ss}            " + func + @$"
+{ss}            {t._GetChildType()._GetReadCode_Lua("o[i]")}
 {ss}            if r ~= 0 then return r end
 {ss}        end";
                 }
@@ -117,7 +117,7 @@ CodeGen_" + cfg.name + @" = {
 
                 if (c._HasCompatible()) {
                     sb.Append(@"
-        if d:GetOffset() >= eo then
+        if d:GetOffset() >= e then
             self." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + @"
         else");
                 }
@@ -143,10 +143,55 @@ CodeGen_" + cfg.name + @" = {
             }
 
             sb.Append(@"
+        return 0
     end,
-    Write = function(self, om)");
+    Write = function(self, om)
+        local d = om.d");
+            if (fs.Exists(f => f.FieldType._IsList())) {
+                sb.Append(", o, len");
+            }
+            if (c._HasBaseType()) {
+                var bt = c.BaseType._GetTypeDecl_Lua();
+                sb.Append(@"
+        -- base read
+        " + bt + @".Write(self, om)");
+            }
+            if (c._HasCompatible()) {
+                sb.Append(@"
+        -- compatible handle
+        local bak = d:Wj(4)");
+            }
 
-            // todo
+            foreach (var f in fs) {
+                var t = f.FieldType;
+                string func;
+                if (t._IsList()) {     // 当前设计方案仅支持 1 层嵌套
+                    func = @$"o = self.{f.Name}
+        len = #o
+        d:Wvu(len)
+        for i = 1, len do
+            {t._GetChildType()._GetWriteCode_Lua("o[i]")}
+        end";
+                }
+                else {
+                    func = t._GetWriteCode_Lua("self." + f.Name);
+                }
+
+                sb.Append(@"
+        -- " + f.Name);
+
+                if (string.IsNullOrEmpty(func))
+                    throw new System.Exception("!!!");
+
+                sb.Append(@"
+        " + func);
+            }
+
+            if (c._HasCompatible()) {
+                sb.Append(@"
+        -- compatible handle
+        d:Wu32_at(bak, d:GetLen() - bak);");
+            }
 
             sb.Append(@"
     end
