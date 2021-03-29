@@ -390,7 +390,7 @@ partial class Cfg {
         cfg.classs = cfg.types.Where(o => o.IsClass && !o._Has<TemplateLibrary.Struct>()).ToList();
 
         // 所有 结构 = types 过滤 是 类 & 标记 是结构 或 是 结构
-        cfg.structs = cfg.types.Where(o => o.IsClass && o._Has<TemplateLibrary.Struct>() || o.IsValueType).ToList();
+        cfg.structs = cfg.types.Where(o => o.IsClass && o._Has<TemplateLibrary.Struct>() || o.IsValueType && !o.IsEnum).ToList();
 
 
         // 所有 本地 枚举 = types 过滤 是 枚举
@@ -403,7 +403,7 @@ partial class Cfg {
         cfg.localClasss = cfg.localClasssStructsEnumsInterfaces.Where(o => o.IsClass && !o._Has<TemplateLibrary.Struct>()).ToList();
 
         // 所有 本地 结构 = types 过滤 是 类 & 标记 是结构 或 是 结构
-        cfg.localStructs = cfg.localClasssStructsEnumsInterfaces.Where(o => o.IsClass && o._Has<TemplateLibrary.Struct>() || o.IsValueType).ToList();
+        cfg.localStructs = cfg.localClasssStructsEnumsInterfaces.Where(o => o.IsClass && o._Has<TemplateLibrary.Struct>() || o.IsValueType && !o.IsEnum).ToList();
 
 
         // 所有 外部 枚举 = types 过滤 是 枚举
@@ -416,7 +416,7 @@ partial class Cfg {
         cfg.externalClasss = cfg.externalClasssStructsEnumsInterfaces.Where(o => o.IsClass && !o._Has<TemplateLibrary.Struct>()).ToList();
 
         // 所有 外部 结构 = types 过滤 是 类 & 标记 是结构 或 是 结构
-        cfg.externalStructs = cfg.externalClasssStructsEnumsInterfaces.Where(o => o.IsClass && o._Has<TemplateLibrary.Struct>() || o.IsValueType).ToList();
+        cfg.externalStructs = cfg.externalClasssStructsEnumsInterfaces.Where(o => o.IsClass && o._Has<TemplateLibrary.Struct>() || o.IsValueType && !o.IsEnum).ToList();
 
         // 各种合并
         cfg.classsStructs = new List<Type>();

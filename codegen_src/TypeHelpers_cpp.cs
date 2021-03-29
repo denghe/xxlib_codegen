@@ -73,7 +73,7 @@ public static partial class TypeHelpers {
         }
         else if (t.IsEnum)  // enum & struct
         {
-            return "::" + (t._IsExternal() ? "" : ("::")) + t.FullName.Replace(".", "::");
+            return t._GetNamespace_Cpp(false) + "::" + t.Name;
         }
         else {
             if (t.Namespace == nameof(TemplateLibrary)) {
