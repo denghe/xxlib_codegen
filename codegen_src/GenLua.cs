@@ -5,19 +5,18 @@
         var sb = new System.Text.StringBuilder();
 
         // header( require, md5, register )
-        sb.Append(@"require ""objmgr""
 
-CodeGen_" + cfg.name + @" = {
-    md5 = """ + StringHelpers.MD5PlaceHolder + @""",
-    Register = function()
-        local o = ObjMgr");
-        foreach (var c in cfg.localClasss) {
+        if (cfg.refsCfgs.Count == 0) {
             sb.Append(@"
-        o.Register(" + c._GetTypeDecl_Lua() + ")");
+require('g_net')");
         }
+        foreach (var c in cfg.refsCfgs) {
+            sb.Append(@"
+require('" + c.name + @"')");
+        }
+
         sb.Append(@"
-    end
-}
+CodeGen_" + cfg.name + @"_md5 =""" + StringHelpers.MD5PlaceHolder + @"""
 ");
         // enums
         foreach (var e in cfg.enums) {
@@ -72,7 +71,7 @@ CodeGen_" + cfg.name + @" = {
     end,
     Read = function(self, om)
         local d = om.d, r, n");
-            if(fs.Exists(f=>f.FieldType._IsList())) {
+            if (fs.Exists(f => f.FieldType._IsList())) {
                 sb.Append(", o");
             }
             if (c._HasCompatible()) {
@@ -198,6 +197,13 @@ CodeGen_" + cfg.name + @" = {
 }
 " + cn + @".__index = " + cn + @"
 ");
+        }
+
+        sb.Append(@"
+local o = ObjMgr");
+        foreach (var c in cfg.localClasss) {
+            sb.Append(@"
+o.Register(" + c._GetTypeDecl_Lua() + ")");
         }
 
         sb._WriteToFile(System.IO.Path.Combine(cfg.outdir_lua, cfg.name + ".lua"));
