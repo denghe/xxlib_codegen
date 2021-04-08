@@ -234,50 +234,50 @@ namespace xx {");
             var ctn = c._GetTypeDecl_Cpp();
             var fs = c._GetFields();
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, " + ctn + @" const& in) {");
+	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Write(om, in);");
+        ObjFuncs<" + btn + ">::Write(om, d, in);");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-        auto bak = om.data->WriteJump(sizeof(uint32_t));");
+        auto bak = d.WriteJump(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        om.Write(in." + f.Name + ");");
+        om.Write(d, in." + f.Name + ");");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-        om.data->WriteFixedAt(bak, (uint32_t)(om.data->len - bak));");
+        d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
     }");
 
             sb.Append(@"
-	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, " + ctn + @"& out) {");
+	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @"& out) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
 
                 sb.Append(@"
-        if (int r = ObjFuncs<" + btn + ">::Read(om, out)) return r;");
+        if (int r = ObjFuncs<" + btn + ">::Read(om, d, out)) return r;");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
         uint32_t siz;
-        if (int r = om.data->ReadFixed(siz)) return r;
-        auto endOffset = om.data->offset + siz;
+        if (int r = d.ReadFixed(siz)) return r;
+        auto endOffset = d.offset + siz;
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -293,14 +293,14 @@ namespace xx {");
                     }
 
                     sb.Append(@"
-        if (om.data->offset >= endOffset) " + dv + @";
-        else if (int r = om.Read(out." + f.Name + @")) return r;");
+        if (d.offset >= endOffset) " + dv + @";
+        else if (int r = om.Read(d, out." + f.Name + @")) return r;");
                 }
             }
             else {
                 foreach (var f in fs) {
                     sb.Append(@"
-        if (int r = om.Read(out." + f.Name + @")) return r;");
+        if (int r = om.Read(d, out." + f.Name + @")) return r;");
                 }
             }
 
@@ -442,46 +442,46 @@ namespace " + ns + "{");
             var fs = c._GetFields();
 
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::Write(::xx::ObjManager& om) const {");
+" + ss + @"void " + c.Name + @"::Write(::xx::ObjManager& om, ::xx::Data& d) const {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::Write(om);");
+" + ss + @"    this->BaseType::Write(om, d);");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-" + ss + @"    auto bak = om.data->WriteJump(sizeof(uint32_t));");
+" + ss + @"    auto bak = d.WriteJump(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-" + ss + @"    om.Write(this->" + f.Name + ");");
+" + ss + @"    om.Write(d, this->" + f.Name + ");");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-" + ss + @"    om.data->WriteFixedAt(bak, (uint32_t)(om.data->len - bak));");
+" + ss + @"    d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
 " + ss + @"}");
 
             sb.Append(@"
-" + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om) {");
+" + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om, ::xx::Data& d) {");
 
             if (c._HasBaseType()) {
                 sb.Append(@"
-" + ss + @"    if (int r = this->BaseType::Read(om)) return r;");
+" + ss + @"    if (int r = this->BaseType::Read(om, d)) return r;");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
 " + ss + @"    uint32_t siz;
-" + ss + @"    if (int r = om.data->ReadFixed(siz)) return r;
-" + ss + @"    auto endOffset = om.data->offset - sizeof(siz) + siz;
+" + ss + @"    if (int r = d.ReadFixed(siz)) return r;
+" + ss + @"    auto endOffset = d.offset - sizeof(siz) + siz;
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -497,19 +497,19 @@ namespace " + ns + "{");
                     }
 
                     sb.Append(@"
-" + ss + @"    if (om.data->offset >= endOffset) " + dv + @";
-" + ss + @"    else if (int r = om.Read(this->" + f.Name + @")) return r;");
+" + ss + @"    if (d.offset >= endOffset) " + dv + @";
+" + ss + @"    else if (int r = om.Read(d, this->" + f.Name + @")) return r;");
                 }
 
                 sb.Append(@"
 
-" + ss + @"    if (om.data->offset > endOffset) return __LINE__;
-" + ss + @"    else om.data->offset = endOffset;");
+" + ss + @"    if (d.offset > endOffset) return __LINE__;
+" + ss + @"    else d.offset = endOffset;");
             }
             else {
                 foreach (var f in fs) {
                     sb.Append(@"
-" + ss + @"    if (int r = om.Read(this->" + f.Name + @")) return r;");
+" + ss + @"    if (int r = om.Read(d, this->" + f.Name + @")) return r;");
                 }
             }
 
