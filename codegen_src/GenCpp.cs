@@ -10,7 +10,46 @@ using System.Collections.Generic;
 // 针对 Weak<T> 类成员属性, 生成 xx::Weak<T>
 // 针对 struct 或标记有 [Struct] 的 class: 生成 ObjFuncs 模板特化适配
 
+partial class Info {
+    public bool? _isSimpleType;
+    public bool isSimpleType {
+        get {
+            return _isSimpleType ?? false;
+        }
+    }
+
+    public static bool CheckIsSimpleType(Type t) {
+        if (t.IsEnum || t._IsNumeric() || t._IsString() || t._IsData()) return true;
+        if (t._IsList() || t._IsNullable()) return CheckIsSimpleType(t._GetChildType());
+        if (t._IsClass() || t._IsStruct()) {
+            var ti = t._GetInfo();
+            if (ti._isSimpleType.HasValue) return ti._isSimpleType.Value;
+            var fs = t._GetExtractFields();
+            foreach (var f in fs) {
+                if (!CheckIsSimpleType(f.FieldType)) {
+                    ti._isSimpleType = false;
+                    return false;
+                }
+            }
+            ti._isSimpleType = true;
+            return true;
+        }
+        if (t._IsWeak() || t._IsShared()) return false; // todo: 以后再进一步检查是否存在递归可能，如果不可能则似乎也能走简化读写
+        throw new Exception("not impl?");
+    }
+
+    // 检查 type 是否为 “简单类型” ( 只含有 数值,枚举,string 或套List 的类型 )
+    public void SetIsSimpleType() {
+        if (this._isSimpleType.HasValue) return;
+        this._isSimpleType = CheckIsSimpleType(this.type);
+    }
+}
+
 public static class GenCpp {
+    public static bool? _IsSimpleType(this Type t) {
+        return t._GetInfo()?._isSimpleType;
+    }
+
     // 简化传参
     static Cfg cfg;
     static List<string> createEmptyFiles = new List<string>();
@@ -18,6 +57,9 @@ public static class GenCpp {
     public static void Gen() {
         cfg = TypeHelpers.cfg;
         createEmptyFiles.Clear();
+        foreach (var c in cfg.typeInfos) {
+            c.Value.SetIsSimpleType();
+        }
 
         Gen_h();
         Gen_cpp();
@@ -128,6 +170,12 @@ namespace " + ns + @" {");
                 sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length) + @"
 " + ss + @"struct " + c.Name + " : " + btn + @" {
 " + ss + @"    XX_OBJ_OBJECT_H(" + c.Name + @", " + btn + @")");
+            }
+
+            // 附加标签
+            if (c._GetInfo().isSimpleType) {
+                sb.Append(@"
+" + ss + @"    using IsSimpleType_v = " + c.Name + ";");
             }
 
             // 前置包含
