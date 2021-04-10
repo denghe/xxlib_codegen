@@ -281,35 +281,65 @@ namespace xx {");
 
             var ctn = c._GetTypeDecl_Cpp();
             var fs = c._GetFields();
+
             sb.Append(@"
-    template<bool needReserve>
 	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Write<needReserve>(om, d, in);");
+        ObjFuncs<" + btn + ">::Write(om, d, in);");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-        auto bak = d.WriteJump<needReserve>(sizeof(uint32_t));");
+        auto bak = d.WriteJump(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        om.Write<needReserve>(d, in." + f.Name + ");");
+        om.Write(d, in." + f.Name + ");");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-        d.WriteFixedAt<needReserve>(bak, (uint32_t)(d.len - bak));");
+        d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
     }");
+
+            sb.Append(@"
+	void ObjFuncs<" + ctn + @", void>::WriteFast(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
+
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                var btn = bt._GetTypeDecl_Cpp();
+                sb.Append(@"
+        ObjFuncs<" + btn + ">::Write<false>(om, d, in);");
+            }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+        auto bak = d.WriteJump<false>(sizeof(uint32_t));");
+            }
+
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+        om.Write<false>(d, in." + f.Name + ");");
+            }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+        d.WriteFixedAt<false>(bak, (uint32_t)(d.len - bak));");
+            }
+
+            sb.Append(@"
+    }");
+
 
             sb.Append(@"
 	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @"& out) {");
