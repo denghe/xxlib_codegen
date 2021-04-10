@@ -388,21 +388,21 @@ namespace xx {");
     }");
 
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::Append(ObjManager &om, " + ctn + @" const& in) {
+	void ObjFuncs<" + ctn + @", void>::Append(ObjManager &om, std::string& s, " + ctn + @" const& in) {
 #ifndef XX_DISABLE_APPEND
-        om.str->push_back('{');
-        AppendCore(om, in);
-        om.str->push_back('}');
+        s.push_back('{');
+        AppendCore(om, s, in);
+        s.push_back('}');
 #endif
     }
-	void ObjFuncs<" + ctn + @", void>::AppendCore(ObjManager &om, " + ctn + @" const& in) {
+	void ObjFuncs<" + ctn + @", void>::AppendCore(ObjManager &om, std::string& s, " + ctn + @" const& in) {
 #ifndef XX_DISABLE_APPEND");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        auto sizeBak = om.str->size();
-        ObjFuncs<" + btn + ">::AppendCore(om, in);");
+        auto sizeBak = s.size();
+        ObjFuncs<" + btn + ">::AppendCore(om, s, in);");
             }
 
             foreach (var f in fs) {
@@ -410,16 +410,16 @@ namespace xx {");
                 if (f == fs[0]) {
                     if (c._HasBaseType()) {
                         sb.Append(@"
-        if (sizeBak < om.str->size()) {
-            om.str->push_back(',');
+        if (sizeBak < s.size()) {
+            s.push_back(',');
         }");
                     }
                     sb.Append(@"
-        om.Append(""\""" + f.Name + @"\"":"", in." + f.Name + @"); ");
+        om.Append(s, ""\""" + f.Name + @"\"":"", in." + f.Name + @"); ");
                 }
                 else {
                     sb.Append(@"
-        om.Append("",\""" + f.Name + @"\"":"", in." + f.Name + @");");
+        om.Append(s, "",\""" + f.Name + @"\"":"", in." + f.Name + @");");
                 }
             }
             sb.Append(@"
@@ -596,27 +596,27 @@ namespace " + ns + "{");
 " + ss + @"    return 0;
 " + ss + @"}");
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om) const {
+" + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om, std::string& s) const {
 #ifndef XX_DISABLE_APPEND
-" + ss + @"    om.Append(""{\""__typeId__\"":" + c._GetTypeId() + @""");");
+" + ss + @"    ::xx::Append(s, ""{\""__typeId__\"":" + c._GetTypeId() + @""");");
             sb.Append(@"
-" + ss + @"    this->AppendCore(om);
-" + ss + @"    om.str->push_back('}');
+" + ss + @"    this->AppendCore(om, s);
+" + ss + @"    s.push_back('}');
 #endif
 " + ss + @"}
-" + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om) const {
+" + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om, std::string& s) const {
 #ifndef XX_DISABLE_APPEND");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::AppendCore(om);");
+" + ss + @"    this->BaseType::AppendCore(om, s);");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-" + ss + @"    om.Append("",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
+" + ss + @"    ::xx::Append(s, "",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
             }
             sb.Append(@"
 #endif
