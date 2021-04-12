@@ -187,21 +187,21 @@ public static partial class TypeHelpers {
                 case "UInt8":
                     return "u8";
                 case "UInt16":
-                    return "vu";// "u16";
+                    return "vu16";
                 case "UInt32":
-                    return "vu";// "u32";
+                    return "vu32";
                 case "UInt64":
-                    return "vu";// "u64";
+                    return "vu64";
                 case "SByte":
                     return "i8";
                 case "Int8":
                     return "i8";
                 case "Int16":
-                    return "vi";// "i16";
+                    return "vi16";
                 case "Int32":
-                    return "vi";// "i32";
+                    return "vi32";
                 case "Int64":
-                    return "vi";// "i64";
+                    return "vi64";
                 case "Double":
                     return "d";
                 case "Float":
@@ -221,17 +221,17 @@ public static partial class TypeHelpers {
                 case "SByte":
                     return "i8";
                 case "UInt16":
-                    return "vu";// "u16";
+                    return "vu16";
                 case "Int16":
-                    return "vi";// "i16";
+                    return "vi16";
                 case "UInt32":
-                    return "vu";// "u32";
+                    return "vu32";
                 case "Int32":
-                    return "vi";// "i32";
+                    return "vi32";
                 case "UInt64":
-                    return "vu";// "u64";
+                    return "vu64";
                 case "Int64":
-                    return "vi";// "i64";
+                    return "vi64";
             }
         }
         throw new Exception("unsupported type");
