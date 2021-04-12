@@ -10,7 +10,46 @@ using System.Collections.Generic;
 // 针对 Weak<T> 类成员属性, 生成 xx::Weak<T>
 // 针对 struct 或标记有 [Struct] 的 class: 生成 ObjFuncs 模板特化适配
 
+partial class Info {
+    public bool? _isSimpleType;
+    public bool isSimpleType {
+        get {
+            return _isSimpleType ?? false;
+        }
+    }
+
+    public static bool CheckIsSimpleType(Type t) {
+        if (t.IsEnum || t._IsNumeric() || t._IsString() || t._IsData()) return true;
+        if (t._IsList() || t._IsNullable()) return CheckIsSimpleType(t._GetChildType());
+        if (t._IsClass() || t._IsStruct()) {
+            var ti = t._GetInfo();
+            if (ti._isSimpleType.HasValue) return ti._isSimpleType.Value;
+            var fs = t._GetExtractFields();
+            foreach (var f in fs) {
+                if (!CheckIsSimpleType(f.FieldType)) {
+                    ti._isSimpleType = false;
+                    return false;
+                }
+            }
+            ti._isSimpleType = true;
+            return true;
+        }
+        if (t._IsWeak() || t._IsShared()) return false; // todo: 以后再进一步检查是否存在递归可能，如果不可能则似乎也能走简化读写
+        throw new Exception("not impl?");
+    }
+
+    // 检查 type 是否为 “简单类型” ( 只含有 数值,枚举,string 或套List 的类型 )
+    public void SetIsSimpleType() {
+        if (this._isSimpleType.HasValue) return;
+        this._isSimpleType = CheckIsSimpleType(this.type);
+    }
+}
+
 public static class GenCpp {
+    public static bool? _IsSimpleType(this Type t) {
+        return t._GetInfo()?._isSimpleType;
+    }
+
     // 简化传参
     static Cfg cfg;
     static List<string> createEmptyFiles = new List<string>();
@@ -18,6 +57,9 @@ public static class GenCpp {
     public static void Gen() {
         cfg = TypeHelpers.cfg;
         createEmptyFiles.Clear();
+        foreach (var c in cfg.typeInfos) {
+            c.Value.SetIsSimpleType();
+        }
 
         Gen_h();
         Gen_cpp();
@@ -130,6 +172,12 @@ namespace " + ns + @" {");
 " + ss + @"    XX_OBJ_OBJECT_H(" + c.Name + @", " + btn + @")");
             }
 
+            // 附加标签
+            if (c._GetInfo().isSimpleType) {
+                sb.Append(@"
+" + ss + @"    using IsSimpleType_v = " + c.Name + ";");
+            }
+
             // 前置包含
             if (c._HasInclude()) {
                 var fn = c._GetUnderlineFullname() + ".inc";
@@ -233,51 +281,82 @@ namespace xx {");
 
             var ctn = c._GetTypeDecl_Cpp();
             var fs = c._GetFields();
+
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, " + ctn + @" const& in) {");
+	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Write(om, in);");
+        ObjFuncs<" + btn + ">::Write(om, d, in);");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-        auto bak = om.data->WriteJump(sizeof(uint32_t));");
+        auto bak = d.WriteJump(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        om.Write(in." + f.Name + ");");
+        om.Write(d, in." + f.Name + ");");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-        om.data->WriteFixedAt(bak, (uint32_t)(om.data->len - bak));");
+        d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
     }");
 
             sb.Append(@"
-	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, " + ctn + @"& out) {");
+	void ObjFuncs<" + ctn + @", void>::WriteFast(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
+
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                var btn = bt._GetTypeDecl_Cpp();
+                sb.Append(@"
+        ObjFuncs<" + btn + ">::Write<false>(om, d, in);");
+            }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+        auto bak = d.WriteJump<false>(sizeof(uint32_t));");
+            }
+
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+        om.Write<false>(d, in." + f.Name + ");");
+            }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+        d.WriteFixedAt<false>(bak, (uint32_t)(d.len - bak));");
+            }
+
+            sb.Append(@"
+    }");
+
+
+            sb.Append(@"
+	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @"& out) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
 
                 sb.Append(@"
-        if (int r = ObjFuncs<" + btn + ">::Read(om, out)) return r;");
+        if (int r = ObjFuncs<" + btn + ">::Read(om, d, out)) return r;");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
         uint32_t siz;
-        if (int r = om.data->ReadFixed(siz)) return r;
-        auto endOffset = om.data->offset + siz;
+        if (int r = d.ReadFixed(siz)) return r;
+        auto endOffset = d.offset + siz;
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -293,14 +372,14 @@ namespace xx {");
                     }
 
                     sb.Append(@"
-        if (om.data->offset >= endOffset) " + dv + @";
-        else if (int r = om.Read(out." + f.Name + @")) return r;");
+        if (d.offset >= endOffset) " + dv + @";
+        else if (int r = om.Read(d, out." + f.Name + @")) return r;");
                 }
             }
             else {
                 foreach (var f in fs) {
                     sb.Append(@"
-        if (int r = om.Read(out." + f.Name + @")) return r;");
+        if (int r = om.Read(d, out." + f.Name + @")) return r;");
                 }
             }
 
@@ -309,21 +388,21 @@ namespace xx {");
     }");
 
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::Append(ObjManager &om, " + ctn + @" const& in) {
+	void ObjFuncs<" + ctn + @", void>::Append(ObjManager &om, std::string& s, " + ctn + @" const& in) {
 #ifndef XX_DISABLE_APPEND
-        om.str->push_back('{');
-        AppendCore(om, in);
-        om.str->push_back('}');
+        s.push_back('{');
+        AppendCore(om, s, in);
+        s.push_back('}');
 #endif
     }
-	void ObjFuncs<" + ctn + @", void>::AppendCore(ObjManager &om, " + ctn + @" const& in) {
+	void ObjFuncs<" + ctn + @", void>::AppendCore(ObjManager &om, std::string& s, " + ctn + @" const& in) {
 #ifndef XX_DISABLE_APPEND");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        auto sizeBak = om.str->size();
-        ObjFuncs<" + btn + ">::AppendCore(om, in);");
+        auto sizeBak = s.size();
+        ObjFuncs<" + btn + ">::AppendCore(om, s, in);");
             }
 
             foreach (var f in fs) {
@@ -331,16 +410,16 @@ namespace xx {");
                 if (f == fs[0]) {
                     if (c._HasBaseType()) {
                         sb.Append(@"
-        if (sizeBak < om.str->size()) {
-            om.str->push_back(',');
+        if (sizeBak < s.size()) {
+            s.push_back(',');
         }");
                     }
                     sb.Append(@"
-        om.Append(""\""" + f.Name + @"\"":"", in." + f.Name + @"); ");
+        om.Append(s, ""\""" + f.Name + @"\"":"", in." + f.Name + @"); ");
                 }
                 else {
                     sb.Append(@"
-        om.Append("",\""" + f.Name + @"\"":"", in." + f.Name + @");");
+        om.Append(s, "",\""" + f.Name + @"\"":"", in." + f.Name + @");");
                 }
             }
             sb.Append(@"
@@ -442,46 +521,46 @@ namespace " + ns + "{");
             var fs = c._GetFields();
 
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::Write(::xx::ObjManager& om) const {");
+" + ss + @"void " + c.Name + @"::Write(::xx::ObjManager& om, ::xx::Data& d) const {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::Write(om);");
+" + ss + @"    this->BaseType::Write(om, d);");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-" + ss + @"    auto bak = om.data->WriteJump(sizeof(uint32_t));");
+" + ss + @"    auto bak = d.WriteJump(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-" + ss + @"    om.Write(this->" + f.Name + ");");
+" + ss + @"    om.Write(d, this->" + f.Name + ");");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-" + ss + @"    om.data->WriteFixedAt(bak, (uint32_t)(om.data->len - bak));");
+" + ss + @"    d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
 " + ss + @"}");
 
             sb.Append(@"
-" + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om) {");
+" + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om, ::xx::Data& d) {");
 
             if (c._HasBaseType()) {
                 sb.Append(@"
-" + ss + @"    if (int r = this->BaseType::Read(om)) return r;");
+" + ss + @"    if (int r = this->BaseType::Read(om, d)) return r;");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
 " + ss + @"    uint32_t siz;
-" + ss + @"    if (int r = om.data->ReadFixed(siz)) return r;
-" + ss + @"    auto endOffset = om.data->offset - sizeof(siz) + siz;
+" + ss + @"    if (int r = d.ReadFixed(siz)) return r;
+" + ss + @"    auto endOffset = d.offset - sizeof(siz) + siz;
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -497,19 +576,19 @@ namespace " + ns + "{");
                     }
 
                     sb.Append(@"
-" + ss + @"    if (om.data->offset >= endOffset) " + dv + @";
-" + ss + @"    else if (int r = om.Read(this->" + f.Name + @")) return r;");
+" + ss + @"    if (d.offset >= endOffset) " + dv + @";
+" + ss + @"    else if (int r = om.Read(d, this->" + f.Name + @")) return r;");
                 }
 
                 sb.Append(@"
 
-" + ss + @"    if (om.data->offset > endOffset) return __LINE__;
-" + ss + @"    else om.data->offset = endOffset;");
+" + ss + @"    if (d.offset > endOffset) return __LINE__;
+" + ss + @"    else d.offset = endOffset;");
             }
             else {
                 foreach (var f in fs) {
                     sb.Append(@"
-" + ss + @"    if (int r = om.Read(this->" + f.Name + @")) return r;");
+" + ss + @"    if (int r = om.Read(d, this->" + f.Name + @")) return r;");
                 }
             }
 
@@ -517,27 +596,27 @@ namespace " + ns + "{");
 " + ss + @"    return 0;
 " + ss + @"}");
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om) const {
+" + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om, std::string& s) const {
 #ifndef XX_DISABLE_APPEND
-" + ss + @"    om.Append(""{\""__typeId__\"":" + c._GetTypeId() + @""");");
+" + ss + @"    ::xx::Append(s, ""{\""__typeId__\"":" + c._GetTypeId() + @""");");
             sb.Append(@"
-" + ss + @"    this->AppendCore(om);
-" + ss + @"    om.str->push_back('}');
+" + ss + @"    this->AppendCore(om, s);
+" + ss + @"    s.push_back('}');
 #endif
 " + ss + @"}
-" + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om) const {
+" + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om, std::string& s) const {
 #ifndef XX_DISABLE_APPEND");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::AppendCore(om);");
+" + ss + @"    this->BaseType::AppendCore(om, s);");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-" + ss + @"    om.Append("",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
+" + ss + @"    ::xx::Append(s, "",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
             }
             sb.Append(@"
 #endif

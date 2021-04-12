@@ -63,6 +63,7 @@ public partial class Cfg {
     public string outdir_cpp { get; set; }
 }
 
+
 // 常用生成器需求功能扩展
 partial class Cfg {
 
@@ -161,9 +162,16 @@ partial class Cfg {
     /// <summary>
     /// type : typeId 字典，包含 asm 中所有用户类型( 本地&外部 填写了 [TypeId( ? )] 的 )
     /// </summary>
-    public Dictionary<Type, ushort> ClassTypeIdMappings = new Dictionary<Type, ushort>();
+    public Dictionary<Type, Info> typeInfos = new Dictionary<Type, Info>();
 }
 
+/// <summary>
+/// Type 扩展信息. 具体生成可进一步 partial 扩展填充
+/// </summary>
+public partial class Info {
+    public Type type;
+    public ushort? typeId;
+}
 
 
 
@@ -334,7 +342,7 @@ partial class Cfg {
         // 再填充一次( 让所有分类容器也按照依赖顺序存储 )
         FillLists(cfg);
 
-        // 填充 typeId
+        // 填充 typeIdClassMappings
         foreach (var c in cfg.classs) {
             var id = c._GetTypeId();
             if (id == null) throw new Exception("type: " + c.FullName + " miss [TypeId(xxxxxx)]");
@@ -347,14 +355,20 @@ partial class Cfg {
                 }
             }
         }
+
+        // 填充 typeInfos
         foreach (var kv in cfg.typeIdClassMappings) {
-            cfg.ClassTypeIdMappings.Add(kv.Value, kv.Key);
+            cfg.typeInfos.Add(kv.Value, new Info { type = kv.Value, typeId = kv.Key });
+        }
+        foreach(var c in cfg.structs) {
+            cfg.typeInfos.Add(c, new Info { type = c });
         }
 
         // todo: more 合法性检测( 标签加错位置? 值不对? .... )
 
-
         // todo: recursive refs check
+
+
 
         // 还原工作目录
         Environment.CurrentDirectory = cd;

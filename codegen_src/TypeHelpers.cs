@@ -232,6 +232,14 @@ public static partial class TypeHelpers {
     }
 
     /// <summary>
+    /// 获取类型附加信息
+    /// </summary>
+    public static Info _GetInfo(this Type t) {
+        if (!cfg.typeInfos.ContainsKey(t)) return null;
+        return cfg.typeInfos[t];
+    }
+
+    /// <summary>
     /// 返回泛型第 index 个子类型
     /// </summary>
     public static Type _GetChildType(this Type t, int index = 0) {
