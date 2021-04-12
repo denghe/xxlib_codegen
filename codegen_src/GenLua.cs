@@ -98,7 +98,7 @@ CodeGen_" + cfg.name + @"_md5 =""" + StringHelpers.MD5PlaceHolder + @"""
                 var t = f.FieldType;
                 string func;
                 if (t._IsList()) {     // 当前设计方案仅支持 1 层嵌套
-                    func = @$"r, len = d:Rvu()
+                    func = @$"r, len = d:Rvu32()
 {ss}        if len > d:GetLeft() then return -1 end
 {ss}        o = {{}}
 {ss}        self.{f.Name} = o
@@ -167,7 +167,7 @@ CodeGen_" + cfg.name + @"_md5 =""" + StringHelpers.MD5PlaceHolder + @"""
                 if (t._IsList()) {     // 当前设计方案仅支持 1 层嵌套
                     func = @$"o = self.{f.Name}
         len = #o
-        d:Wvu(len)
+        d:Wvu32(len)
         for i = 1, len do
             {t._GetChildType()._GetWriteCode_Lua("o[i]")}
         end";
