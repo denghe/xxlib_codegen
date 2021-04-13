@@ -116,7 +116,7 @@ public static partial class TypeHelpers {
             return "r, " + varName + " = om:Read()";
         }
         else if (t._IsClass() || t._IsStruct()) {
-            return varName + @" = " + t._GetTypeDesc_Lua() + @".Create(); r = " + varName + ":Read(om)";
+            return varName + @" = " + t._GetTypeDecl_Lua() + @".Create(); r = " + varName + ":Read(om)";
         }
         else if (t._IsNullable()) {
             var bak = t;
@@ -131,7 +131,7 @@ public static partial class TypeHelpers {
                 return "r, " + varName + " = d:Rn" + t._GetRWFuncName_Lua() + "()";
             }
             else if (t._IsClass() || t._IsStruct()) {
-                return "r, n = d:Ru8(); if r ~= 0 then return r end; if n == 0 then " + varName + " = null else " + varName + @" = " + t._GetTypeDesc_Lua() + @".Create(); r = " + varName + ":Read(om) end";
+                return "r, n = d:Ru8(); if r ~= 0 then return r end; if n == 0 then " + varName + " = null else " + varName + @" = " + t._GetTypeDecl_Lua() + @".Create(); r = " + varName + ":Read(om) end";
             }
             else
                 throw new System.Exception("unsupported type: " + bak.FullName);
