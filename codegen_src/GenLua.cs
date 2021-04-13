@@ -70,7 +70,8 @@ CodeGen_" + cfg.name + @"_md5 =""" + StringHelpers.MD5PlaceHolder + @"""
         return o
     end,
     Read = function(self, om)
-        local d = om.d, r, n");
+        local d = om.d
+        local r, n");
             if (fs.Exists(f => f.FieldType._IsList())) {
                 sb.Append(", o");
             }
@@ -147,7 +148,8 @@ CodeGen_" + cfg.name + @"_md5 =""" + StringHelpers.MD5PlaceHolder + @"""
     Write = function(self, om)
         local d = om.d");
             if (fs.Exists(f => f.FieldType._IsList())) {
-                sb.Append(", o, len");
+                sb.Append(@"
+        local o, len");
             }
             if (c._HasBaseType()) {
                 var bt = c.BaseType._GetTypeDecl_Lua();
