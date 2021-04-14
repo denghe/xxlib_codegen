@@ -356,7 +356,7 @@ namespace xx {");
                 sb.Append(@"
         uint32_t siz;
         if (int r = d.ReadFixed(siz)) return r;
-        auto endOffset = d.offset + siz;
+        auto endOffset = siz - sizeof(siz) + d.offset;
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -375,6 +375,12 @@ namespace xx {");
         if (d.offset >= endOffset) " + dv + @";
         else if (int r = om.Read(d, out." + f.Name + @")) return r;");
                 }
+
+                sb.Append(@"
+
+        if (d.offset > endOffset) return __LINE__;
+        else d.offset = endOffset;");
+
             }
             else {
                 foreach (var f in fs) {
@@ -560,7 +566,7 @@ namespace " + ns + "{");
                 sb.Append(@"
 " + ss + @"    uint32_t siz;
 " + ss + @"    if (int r = d.ReadFixed(siz)) return r;
-" + ss + @"    auto endOffset = d.offset - sizeof(siz) + siz;
+" + ss + @"    auto endOffset = siz - sizeof(siz) + d.offset;
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
