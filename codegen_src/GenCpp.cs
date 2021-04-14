@@ -342,7 +342,7 @@ namespace xx {");
 
 
             sb.Append(@"
-	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @"& out) {");
+	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, ::xx::Data_r& d, " + ctn + @"& out) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
@@ -356,7 +356,10 @@ namespace xx {");
                 sb.Append(@"
         uint32_t siz;
         if (int r = d.ReadFixed(siz)) return r;
-        auto endOffset = siz - sizeof(siz) + d.offset;
+        if (siz < sizeof(siz)) return __LINE__;
+        siz -= sizeof(siz);
+        if (siz > d.len - d.offset) return __LINE__;
+        xx::Data_r dr(d.buf + d.offset, siz);
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -372,14 +375,13 @@ namespace xx {");
                     }
 
                     sb.Append(@"
-        if (d.offset >= endOffset) " + dv + @";
-        else if (int r = om.Read(d, out." + f.Name + @")) return r;");
+        if (dr.offset == siz) " + dv + @";
+        else if (int r = om.Read(dr, out." + f.Name + @")) return r;");
                 }
 
                 sb.Append(@"
 
-        if (d.offset > endOffset) return __LINE__;
-        else d.offset = endOffset;");
+        d.offset += siz;");
 
             }
             else {
@@ -555,7 +557,7 @@ namespace " + ns + "{");
 " + ss + @"}");
 
             sb.Append(@"
-" + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om, ::xx::Data& d) {");
+" + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om, ::xx::Data_r& d) {");
 
             if (c._HasBaseType()) {
                 sb.Append(@"
@@ -566,7 +568,10 @@ namespace " + ns + "{");
                 sb.Append(@"
 " + ss + @"    uint32_t siz;
 " + ss + @"    if (int r = d.ReadFixed(siz)) return r;
-" + ss + @"    auto endOffset = siz - sizeof(siz) + d.offset;
+" + ss + @"    if (siz < sizeof(siz)) return __LINE__;
+" + ss + @"    siz -= sizeof(siz);
+" + ss + @"    if (siz > d.len - d.offset) return __LINE__;
+" + ss + @"    xx::Data_r dr(d.buf + d.offset, siz);
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -582,14 +587,13 @@ namespace " + ns + "{");
                     }
 
                     sb.Append(@"
-" + ss + @"    if (d.offset >= endOffset) " + dv + @";
-" + ss + @"    else if (int r = om.Read(d, this->" + f.Name + @")) return r;");
+" + ss + @"    if (dr.offset == siz) " + dv + @";
+" + ss + @"    else if (int r = om.Read(dr, this->" + f.Name + @")) return r;");
                 }
 
                 sb.Append(@"
 
-" + ss + @"    if (d.offset > endOffset) return __LINE__;
-" + ss + @"    else d.offset = endOffset;");
+" + ss + @"    d.offset += siz;");
             }
             else {
                 foreach (var f in fs) {
@@ -622,7 +626,7 @@ namespace " + ns + "{");
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-" + ss + @"    ::xx::Append(s, "",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
+" + ss + @"    om.Append(s, "",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
             }
             sb.Append(@"
 #endif
