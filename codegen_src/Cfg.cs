@@ -61,6 +61,7 @@ public partial class Cfg {
     public string outdir_cs { get; set; }
     public string outdir_lua { get; set; }
     public string outdir_cpp { get; set; }
+    public string outdir_rs { get; set; }
 }
 
 
@@ -303,7 +304,8 @@ partial class Cfg {
         // 输出路径检查
         if (string.IsNullOrWhiteSpace(cfg.outdir_cs)
             && string.IsNullOrWhiteSpace(cfg.outdir_lua)
-            && string.IsNullOrWhiteSpace(cfg.outdir_cpp)) throw new Exception("miss outdir_cs | outdir_lua | outdir_cpp ?");
+            && string.IsNullOrWhiteSpace(cfg.outdir_cpp)
+            && string.IsNullOrWhiteSpace(cfg.outdir_rs)) throw new Exception("miss outdir_cs | outdir_lua | outdir_cpp | outdir_rs ?");
 
         if (!string.IsNullOrWhiteSpace(cfg.outdir_cs)) {
             cfg.outdir_cs = Path.GetFullPath(cfg.outdir_cs);
@@ -316,6 +318,11 @@ partial class Cfg {
         if (!string.IsNullOrWhiteSpace(cfg.outdir_cpp)) {
             cfg.outdir_cpp = Path.GetFullPath(cfg.outdir_cpp);
             if (!Directory.Exists(cfg.outdir_cpp)) throw new Exception("can't find outdir_cpp dir: " + cfg.outdir_cpp);
+        }
+        if (!string.IsNullOrWhiteSpace(cfg.outdir_rs))
+        {
+            cfg.outdir_rs = Path.GetFullPath(cfg.outdir_rs);
+            if (!Directory.Exists(cfg.outdir_rs)) throw new Exception("can't find outdir_rs dir: " + cfg.outdir_rs);
         }
 
         // 合并所有 refsCfgs 的所有源代码文件列表

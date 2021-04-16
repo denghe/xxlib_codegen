@@ -39,6 +39,10 @@ public static class Program {
                     if (!string.IsNullOrWhiteSpace(TypeHelpers.cfg.outdir_lua)) {
                         GenLua.Gen();
                     }
+                    if (!string.IsNullOrWhiteSpace(TypeHelpers.cfg.outdir_rs))
+                    {
+                        GenRust.Gen();
+                    }
                 }
                 catch (Exception ex) {
                     TipsAndExit("生成失败: " + ex.Message + "\r\n" + ex.StackTrace, -1);
