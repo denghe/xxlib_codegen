@@ -57,12 +57,9 @@ public static partial class CodeGen_{cfg.name}
 
     }
 
-
-
     private static void GenStruct(StringBuilder sb, int i)
     {
         var c = cfg.localStructs[i];
-        var typeid = c._GetTypeId();
 
         var need_compatible = c._Has<TemplateLibrary.Compatible>();
 

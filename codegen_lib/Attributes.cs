@@ -7,7 +7,7 @@ namespace TemplateLibrary {
     // C++ 生成时，使用 object 来指代 xx::ObjBase
 
     /// <summary>
-    /// 对应 c++ std::optional, c# Nullable<>, lua variable
+    /// 对应 c++ std::optional, c# Nullable<>, lua variable,Rust Option<T>
     /// 考虑到 c# string & class & lua table 默认语言级别可空，和 c++ 默认值类型冲突
     /// 如果 不加 Nullable, 则 c# lua 不可传空( 发送时检查 ), C++ 就是直接的值类型
     /// 如果 加了 Nullable, 则 c# lua 可传空( 发送时不检查 ), C++ 包裹 std::optional
@@ -15,27 +15,38 @@ namespace TemplateLibrary {
     public class Nullable<T> { }
 
     /// <summary>
-    /// 对应 c++ std::vector, c# List, lua table
+    /// 对应 c++ std::vector, c# List, lua table,Rust Vec<T>
     /// 如果不套 Nullable, 则 C# lua 不可传空( 发送时检查 )
     /// </summary>
     public class List<T> { }
 
     /// <summary>
-    /// 对应 c++ std::weak_ptr, c# ???, lua ???
+    /// 对应 c++ std::weak_ptr, c# ???, lua ??? ,rust Weak
     /// 暂时不支持 c#, lua, 生成 c# lua 时如果检测到，就直接报错
     /// </summary>
     public class Weak<T> { }
 
     /// <summary>
-    /// 对应 c++ std::shared_ptr, c# Shared/Property, lua ???
+    /// 对应 c++ std::shared_ptr, c# Shared/Property, lua ???,rust Shardptr
     /// 暂时不支持 c#, lua, 生成 c# lua 时如果检测到，就直接报错
     /// </summary>
     public class Shared<T> { }
 
     /// <summary>
-    /// 对应 c++ std::map, c# Dict[ionary]( 无法保证原始顺序 ). lua table( 无法保证原始顺序 )
+    /// 对应 c++ std::map, c# 暂时不支持,再说. lua table( 无法保证原始顺序 ) rust btreemap
     /// </summary>
     public class Dict<K, V> { }
+
+
+    /// <summary>
+    /// 对应 c++ std::unordered_map, c# 暂时不支持,再说. lua table( 无法保证原始顺序 ). rust hashmap
+    /// </summary>
+    public class HashMap<K, V> { }
+
+    /// <summary>
+    /// 对应 c++  暂时不支持,再说, c# 暂时不支持,再说. lua  暂时不支持,再说. rust HashSet
+    /// </summary>
+    public class HashSet<K> { }
 
     /// <summary>
     /// 对应 c++ std::pair, c# 模拟. lua table 模拟
