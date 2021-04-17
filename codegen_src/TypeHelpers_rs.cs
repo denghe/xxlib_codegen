@@ -89,6 +89,9 @@ public static partial class TypeHelpers
             }
             if (t._IsNumeric())
             {
+                if (v.ToString() == "0")
+                    return "";
+
                 if (t.Name == "Single"||t.Name== "Double")
                 {
                     var s = v.ToString().ToLower();

@@ -18,6 +18,32 @@ public static class GenRust
         sb.Clear();
     }
 
+
+    public static string checkname(string name)
+    {
+        switch (name)
+        {
+            case "type":
+                return "type_";
+            case "self":
+                return "self_";
+            case "use":
+                return "use_";
+            case "loop":
+                return "loop_";
+            case "mod":
+                return "mod_";
+            case "pub":
+                return "pub_";
+            case "Self":
+                return "Self_";
+            case "super":
+                return "super_";
+            default:
+                return name;
+        }
+    }
+
     public static void Gen_Rust_Head(this StringBuilder sb)
     {
         var tb = new StringBuilder();
@@ -105,7 +131,7 @@ pub struct {name}{{");
     #[cmd(default({dv}))]");
 
             sb.Append($@"
-    pub {f.Name}:{ftn},");
+    pub {checkname(f.Name)}:{ftn},");
 
         }
 
@@ -153,7 +179,7 @@ pub struct {name}{{");
     #[cmd(default({dv}))]");
 
             sb.Append($@"
-    pub {f.Name}:{ftn},");
+    pub {checkname(f.Name)}:{ftn},");
 
         }
 
@@ -178,7 +204,7 @@ pub enum {name}{{");
         foreach (var f in fs)
         {
             sb.Append($@"{f._GetDesc()._GetComment_Rust(4)}
-    {f.Name} = " + f._GetEnumValue(e) + ",");
+    {checkname(f.Name)} = " + f._GetEnumValue(e) + ",");
         }
         sb.Append(@"
 }");
