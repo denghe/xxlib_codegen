@@ -739,7 +739,7 @@ namespace " + ns + "{");
         foreach (var c in cfg.localStructs) {
             if (c._HasClassMember()) continue;
             sb.Append(@"
-AJSON(" + "::" + c.Name);
+AJSON(" + c._GetTypeDecl_Cpp());
             GenH_AJSON(sb, c);
             sb.Append(");");
         }

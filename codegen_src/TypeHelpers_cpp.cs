@@ -140,7 +140,9 @@ public static partial class TypeHelpers {
                         return "::std::string";
                 }
             }
-            return t._GetNamespace_Cpp(false) + "::" + t.Name;
+            var n = t._GetNamespace_Cpp(true);
+            if (n == "::") n = "";
+            return n + "::" + t.Name;
         }
     }
 
