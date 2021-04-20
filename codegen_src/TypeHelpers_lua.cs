@@ -49,31 +49,10 @@ public static partial class TypeHelpers {
         throw new Exception("unsupported type: " + t.FullName + " " + f.Name + " in " + f.DeclaringType.FullName);
     }
 
-    // todo: 遇到 Shared 去壳, 遇到不包 Shared 的 class 报错
-
     /// <summary>
     /// 获取 LUA 的类型声明串
     /// </summary>
     public static string _GetTypeDecl_Lua(this Type t) {
-        if (t._IsNullable()) {
-            return "Nullable_" + _GetTypeDecl_Lua(t.GenericTypeArguments[0]);
-        }
-        else if (t._IsWeak()) {
-            return "Weak_" + _GetTypeDecl_Lua(t.GenericTypeArguments[0]);
-        }
-        else if (t._IsList()) {
-            string rtv = t.Name.Substring(0, t.Name.IndexOf('`')) + "_";
-            for (int i = 0; i < t.GenericTypeArguments.Length; ++i) {
-                if (i > 0)
-                    rtv += "_";
-                rtv += _GetTypeDecl_Lua(t.GenericTypeArguments[i]);
-            }
-            rtv += "_";
-            return rtv;
-        }
-        else if (t.Namespace == nameof(System) || t.Namespace == nameof(TemplateLibrary)) {
-            return t.Name;
-        }
         return t.FullName.Replace(".", "_");
     }
 
@@ -168,7 +147,7 @@ public static partial class TypeHelpers {
                 return "d:Wn" + t._GetRWFuncName_Lua() + "(" + varName + ")";
             }
             else if (t._IsClass() || t._IsStruct()) {
-                return "if " + varName + " == null then d:Wu8(0) else d:Wu8(1); " + varName + ":Write(om) end";
+                return "if " + varName + " == null or " + varName + " == nil then d:Wu8(0) else d:Wu8(1); " + varName + ":Write(om) end";
             }
             else
                 throw new System.Exception("unsupported type: " + bak.FullName);
