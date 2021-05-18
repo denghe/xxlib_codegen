@@ -636,7 +636,7 @@ namespace " + ns + "{");
                 sb.Append(@") {
 " + ss + @"    d.Write(xx::TypeId_v<" + c.Name + ">);");
                 foreach (var f in c._GetExtractFields()) {
-                    sb.Append(@") {
+                    sb.Append(@"
 " + ss + @"    d.Write(" + f.Name + ");");
                 }
                 sb.Append(@"
