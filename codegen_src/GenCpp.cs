@@ -264,7 +264,12 @@ namespace " + ns + @" {");
                 sb.Append(@"
 " + ss + @"    static void WriteTo(xx::Data& d");
                 foreach (var f in c._GetExtractFields()) {
-                    sb.Append(", " + f.FieldType._GetTypeDecl_Cpp() + " const&");
+                    var ft = f.FieldType;
+                    var ftn = ft._GetTypeDecl_Cpp();
+                    if (ft._IsString()) {
+                        ftn = "std::string_view";
+                    }
+                    sb.Append(", " + ftn + " const&");
                 }
                 sb.Append(");");
             }
