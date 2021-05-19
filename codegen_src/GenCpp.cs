@@ -269,7 +269,7 @@ namespace " + ns + @" {");
                     if (ft._IsString()) {
                         ftn = "std::string_view";
                     }
-                    sb.Append(", " + ftn + " const&");
+                    sb.Append(", " + ftn + " const& " + f.Name);
                 }
                 sb.Append(");");
             }
@@ -308,8 +308,8 @@ namespace xx {");
                     sb.Append(@"
     template<typename T> struct DataFuncs<T, std::enable_if_t<std::is_same_v<" + c._GetTypeDecl_Cpp() + @", std::decay_t<T>>>> {
 		template<bool needReserve = true>
-		static inline void Write(Data& d, T const& in) { (*(xx::ObjManager*)nullptr).Write(d, in); }
-		static inline int Read(Data_r& d, T& out) { return (*(xx::ObjManager*)nullptr).Read(d, out); }
+		static inline void Write(Data& d, T const& in) { (*(xx::ObjManager*)-1).Write(d, in); }
+		static inline int Read(Data_r& d, T& out) { return (*(xx::ObjManager*)-1).Read(d, out); }
     };");
                 }
             }
