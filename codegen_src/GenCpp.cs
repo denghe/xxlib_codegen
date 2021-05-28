@@ -260,7 +260,7 @@ namespace " + ns + @" {");
             }
 
             // WriteTo
-            if (c._IsPureType()) {
+            if (c._IsClass() && c._IsPureType()) {
                 sb.Append(@"
 " + ss + @"    static void WriteTo(xx::Data& d");
                 foreach (var f in c._GetExtractFields()) {
