@@ -21,6 +21,16 @@ namespace TemplateLibrary {
     public class List<T> { }
 
     /// <summary>
+    /// 对应 c++ std::queue, 其他语言再说
+    /// </summary>
+    public class Queue<T> { }
+
+    /// <summary>
+    /// 对应 c++ std::deque, 其他语言再说
+    /// </summary>
+    public class Deque<T> { }
+
+    /// <summary>
     /// 对应 c++ std::weak_ptr, c# ???, lua ??? ,rust Weak
     /// 暂时不支持 c#, lua, 生成 c# lua 时如果检测到，就直接报错
     /// </summary>
@@ -36,7 +46,6 @@ namespace TemplateLibrary {
     /// 对应 c++ std::map, c# 暂时不支持,再说. lua table( 无法保证原始顺序 ) rust btreemap
     /// </summary>
     public class Dict<K, V> { }
-
 
     /// <summary>
     /// 对应 c++ std::unordered_map, c# 暂时不支持,再说. lua table( 无法保证原始顺序 ). rust hashmap
