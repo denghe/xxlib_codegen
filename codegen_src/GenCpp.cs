@@ -19,9 +19,10 @@ partial class Info {
         }
     }
     public static bool CheckIsSimpleType(Type t) {
-        if (t._IsExternal()) return t.IsValueType;
+        //if (t._IsExternal()) return t.IsValueType;
         if (t.IsEnum || t._IsNumeric() || t._IsString() || t._IsData()) return true;
         if (t.IsGenericType) {
+            if (t._IsWeak() || t._IsShared()) return false; // todo: 以后再进一步检查是否存在递归可能，如果不可能则似乎也能走简化读写
             foreach (var ct in t.GetGenericArguments()) {
                 if (!CheckIsSimpleType(ct)) return false;
             }
@@ -41,39 +42,39 @@ partial class Info {
             ti._isSimpleType = true;
             return true;
         }
-        if (t._IsWeak() || t._IsShared()) return false; // todo: 以后再进一步检查是否存在递归可能，如果不可能则似乎也能走简化读写
         throw new Exception("not impl?" + t.Name);
     }
 
-    // 检查 type 是否为 “简单类型” ( 只含有 数值,枚举,string 或套List 的类型 )
+    // 检查 type 是否为 “简单类型” ( 只含有 数值,枚举,string 或套泛型容器 的类型 )
     public void SetIsSimpleType() {
         if (this._isSimpleType.HasValue) return;
         this._isSimpleType = CheckIsSimpleType(this.type);
     }
 
-    // 单纯类型：写 Data 时全程不需要用到 ObjManager, 且没有打开兼容模式( 成员只能是简单类型，可嵌套结构体和泛型，不可出现 类 )
+    // 单纯类型：写 Data 时全程不需要用到 ObjManager, 且没有打开兼容模式( 成员只能是简单类型，可嵌套结构体和泛型，不可出现 类 或 Shared/Weak )
     public bool? _isPureType;
     public bool isPureType {
         get {
             return _isPureType ?? false;
         }
     }
-    public static bool CheckIsPureType(Type t, bool isRoot = true) {
-        if (t._IsExternal()) return t.IsValueType;
+    public static bool CheckIsPureType(Type t) {
+        //if (t._IsExternal()) return t.IsValueType;
         if (t.IsEnum || t._IsNumeric() || t._IsString() || t._IsData()) return true;
         if (t.IsGenericType) {
+            if (t._IsWeak() || t._IsShared()) return false;
             foreach (var ct in t.GetGenericArguments()) {
-                if (!CheckIsPureType(ct, false)) return false;
+                if (!CheckIsPureType(ct)) return false;
             }
             return true;
         }
-        if (t._IsStruct()) {
+        if (t._IsStruct() || t._IsClass()) {
             var ti = t._GetInfo();
             if (ti._isPureType.HasValue) return ti._isPureType.Value;
             if (t._HasCompatible()) return false;
             var fs = t._GetExtractFields();
             foreach (var f in fs) {
-                if (!CheckIsPureType(f.FieldType, false)) {
+                if (!CheckIsPureType(f.FieldType)) {
                     ti._isPureType = false;
                     return false;
                 }
@@ -81,7 +82,7 @@ partial class Info {
             ti._isPureType = true;
             return true;
         }
-        if (t._IsClass()) return isRoot;
+        //if (t._IsStruct() || t._IsClass()) return isRoot;
         throw new Exception("not impl? " + t.Name);
     }
 
@@ -115,6 +116,7 @@ public static class GenCpp {
         foreach (var c in cfg.typeInfos) {
             c.Value.SetIsSimpleType();
             c.Value.SetIsPureType();
+            Console.WriteLine(c.Key + " is pure? " + c.Value.isPureType);
         }
 
         Gen_h();
