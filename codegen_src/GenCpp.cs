@@ -130,17 +130,17 @@ public static class GenCpp {
         // 包含依赖
         if (cfg.refsCfgs.Count == 0) {
             sb.Append(@"
-#include ""xx_obj.h""");
+#include <xx_obj.h>");
         }
         foreach (var c in cfg.refsCfgs) {
             sb.Append(@"
-#include """ + c.name + @".h""");
+#include <" + c.name + @".h>");
         }
 
         // 前置切片
         createEmptyFiles.Add(cfg.name + ".h.inc");
         sb.Append(@"
-#include """ + cfg.name + @".h.inc""");
+#include <" + cfg.name + @".h.inc>");
 
         // 校验和注册
         sb.Append(@"
@@ -239,7 +239,7 @@ namespace " + ns + @" {");
                 var fn = c._GetUnderlineFullname() + ".inc";
                 createEmptyFiles.Add(fn);
                 sb.Append(@"
-#include """ + fn + @"""");
+#include <" + fn + @">");
             }
 
             // 成员
@@ -279,7 +279,7 @@ namespace " + ns + @" {");
                 var fn = c._GetUnderlineFullname() + "_.inc";
                 createEmptyFiles.Add(fn);
                 sb.Append(@"
-#include """ + fn + @"""");
+#include <" + fn + @">");
             }
 
             sb.Append(@"
@@ -322,7 +322,7 @@ namespace xx {");
             var fn = cfg.name + "_.h.inc";
             createEmptyFiles.Add(fn);
             sb.Append(@"
-#include """ + fn + @"""
+#include <" + fn + @">
 ");
         }
 
@@ -334,8 +334,8 @@ namespace xx {");
         // 前置包含
         {
             var fn = cfg.name + ".cpp.inc";
-            sb.Append("#include \"" + cfg.name + @".h""
-#include """ + fn + @"""");
+            sb.Append("#include <" + cfg.name + @".h>
+#include <" + fn + @">");
             createEmptyFiles.Add(fn);
         }
 
@@ -878,8 +878,8 @@ namespace " + ns + "{");
     public static void Gen_ajson_h() {
         var sb = new StringBuilder();
         sb.Append(@"#pragma once
-#include """ + cfg.name + @".h""
-#include ""ajson.hpp""");
+#include <" + cfg.name + @".h>
+#include <ajson.hpp>");
         foreach (var c in cfg.localStructs) {
             if (c._HasClassMember()) continue;
             sb.Append(@"
