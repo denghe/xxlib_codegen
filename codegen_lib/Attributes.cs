@@ -1,7 +1,10 @@
 ﻿// 全是 Attribute
-namespace TemplateLibrary {
 
-    // 语言定位：C++ 通信 + 建模( 支持递归强弱引用 ), C# Lua 仅通信( 只支持基础结构体组合 & 继承 )
+// 语言定位：C++ 通信 + 建模( 支持递归强弱引用 ), C# Lua 仅通信( 只支持基础结构体组合 & 继承 )
+
+namespace TemplateLibrary {
+    /****************************************************************************************/
+    // 数据类型
 
     // 使用 byte[] 来指代 xx.Data
     // C++ 生成时，使用 object 来指代 xx::ObjBase
@@ -74,6 +77,15 @@ namespace TemplateLibrary {
     public class Tuple<T1, T2, T3, T4, T5, T6, T7> { }
 
 
+    /****************************************************************************************/
+    // 标记
+
+    /// <summary>
+    /// 标记一个 class 生成时走 struct 规则( 值类型继承 ), 以突破 c# 写模板的限制
+    /// </summary>
+    [System.AttributeUsage(System.AttributeTargets.Class)]
+    public class Struct : System.Attribute { }
+
     /// <summary>
     /// 用来做类型到 typeId 的固定映射生成
     /// </summary>
@@ -125,17 +137,17 @@ namespace TemplateLibrary {
     }
 
 
+    /// <summary>
+    /// Lua only
+    /// 标记一个类成员 数据类型为 long / ulong ( 可空，数组啥的不支持 ) 的，映射到 lua 中为 double 
+    /// </summary>
+    [System.AttributeUsage(System.AttributeTargets.Field)]
+    public class LuaDouble : System.Attribute {
+    }
+
 
     /****************************************************************************************/
-    // 次要的
-
-    /// <summary>
-    /// C# only
-    /// 标记一个 class 生成时走 struct 规则( 值类型继承 ), 以突破 c# 写模板的限制
-    /// </summary>
-    [System.AttributeUsage(System.AttributeTargets.Class)]
-    public class Struct : System.Attribute { }
-
+    // 次要标记
 
     /// <summary>
     /// 针对最外层级的 List, Data, string 做最大长度保护限制
