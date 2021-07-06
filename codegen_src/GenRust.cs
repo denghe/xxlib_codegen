@@ -51,7 +51,7 @@ public static class GenRust
         foreach (var c in cfg.localClasss)
         {
             tb.Append($@"
-    ObjectManager::register::<{c._GetTypeName_Rust()}>();");
+    ObjectManager::register::<{c._GetTypeName_Rust()}>(stringify!({c._GetTypeName_Rust()}));");
         }
 
         var refs = new StringBuilder();
