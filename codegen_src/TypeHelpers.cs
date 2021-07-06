@@ -111,9 +111,9 @@ public static partial class TypeHelpers {
             );
     }
 
-    public static bool _IsNullableNumber(this Type t)    
+    public static bool _IsNullableNumber(this Type t)
      => t._IsNullable() && t.GenericTypeArguments[0]._IsNumeric();
-    
+
 
     /// <summary>
     /// 返回 t 是否为 bool 类型
@@ -167,25 +167,45 @@ public static partial class TypeHelpers {
     }
 
     /// <summary>
+    /// 判断目标类型是否存在派生类
+    /// </summary>
+    public static bool _HasDerives(this Type t) {
+        return _GetDerives(t).Count > 0;
+    }
+
+    /// <summary>
     /// 判断目标上是否有附加某个类型的 Attribute
     /// </summary>
     public static bool _Has<T>(this ICustomAttributeProvider f) {
         var cas = f.GetCustomAttributes(false).ToList();
         return cas.Any(a => a is T);
     }
+
+    /// <summary>
+    /// 判断目标类型 是否需要生成 前置包含文件
+    /// </summary>
     public static bool _HasInclude(this ICustomAttributeProvider f) {
         return _Has<TemplateLibrary.Include>(f);
     }
+
+    /// <summary>
+    /// 判断目标类型 是否需要生成 后置包含文件
+    /// </summary>
     public static bool _HasInclude_(this ICustomAttributeProvider f) {
         return _Has<TemplateLibrary.Include_>(f);
     }
+
+    /// <summary>
+    /// 判断目标类型 是否需要生成 兼容模式读写代码
+    /// </summary>
     public static bool _HasCompatible(this ICustomAttributeProvider f) {
         return _Has<TemplateLibrary.Compatible>(f);
     }
+
     // todo: more has for easy use
 
     /// <summary>
-    /// 递归判断 是否有任意成员变量类型是 class ( 含泛型 )
+    /// 递归判断 是否有任意成员变量类型是 class
     /// </summary>
     public static bool _HasClassMember(this Type t) {
         if (t._IsExternal() && t.IsValueType) return false;
@@ -265,6 +285,20 @@ public static partial class TypeHelpers {
             ts.Add(bt);
             bt = bt.BaseType;
             goto LabBegin;
+        }
+        return ts;
+    }
+
+    /// <summary>
+    /// 获取 class 的 派生类 列表( 不含自身 )
+    /// </summary>
+    public static List<Type> _GetDerives(this Type t) {
+        var ts = new List<Type>();
+        foreach (var tar in cfg.classs) {
+            if (tar == t) continue;
+            if (tar.BaseType == t) {
+                ts.Add(tar);
+            }
         }
         return ts;
     }

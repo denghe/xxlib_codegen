@@ -110,6 +110,12 @@ CodeGen_" + cfg.name + @"_md5 =""" + StringHelpers.MD5PlaceHolder + @"""
                 }
                 else {
                     func = t._GetReadCode_Lua("self." + f.Name);
+                    if (f._Has<TemplateLibrary.LuaDouble>()) {
+                        if (t._IsNumeric() && (t.Name == "Int64" || t.Name == "UInt64")) {
+                            func = func.Replace("64", "64d");
+                        }
+                        else throw new System.Exception("LuaDouble only support [U]Int64 data type now.");
+                    }
                 }
 
                 sb.Append(@"
@@ -176,6 +182,12 @@ CodeGen_" + cfg.name + @"_md5 =""" + StringHelpers.MD5PlaceHolder + @"""
                 }
                 else {
                     func = t._GetWriteCode_Lua("self." + f.Name);
+                    if (f._Has<TemplateLibrary.LuaDouble>()) {
+                        if (t._IsNumeric() && (t.Name == "Int64" || t.Name == "UInt64")) {
+                            func = func.Replace("64", "64d");
+                        }
+                        else throw new System.Exception("LuaDouble only support [U]Int64 data type now.");
+                    }
                 }
 
                 sb.Append(@"
