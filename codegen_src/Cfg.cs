@@ -18,9 +18,14 @@ using System.Collections.Generic;
 	"refs":[]
 	"name":"Shared"								// 多用于生成物文件前缀
 	"files":[".\abc.cs", ".\def.cs"],			// 合并编译 asm 的文件列表( 其路径相对于 gen_cfg.json 所在目录 或填写绝对路径 )
+
 	"outdir_cs":"..\out\cs\"					// 对应语言的生成物 输出目录( 缺失 或 留空 表示不生成 ). 必须是已经存在的目录，生成器不帮忙创建
 	"outdir_lua":"..\out\lua\"					//
 	"outdir_cpp":"..\out\cpp\"					//
+	"outdir_rs":"..\out\rs\"					//
+
+    "typeid_from": 1,                           // [TypeId( 值范围 从 )] 含 本身. 如果没有这项配置，则该值默认为 0
+    "typeid_to": 99                             // [TypeId( 值范围 到 )] 含 本身. 如果没有这项配置，则该值默认为 uint16 最大值 65536
 }
 
 .\projs\p1 目录下文件列表：gen_cfg.json efg.cs hhhh.cs
@@ -31,6 +36,7 @@ using System.Collections.Generic;
 	"outdir_cs":"..\..\..\out\cs\"
 	"outdir_lua":"..\..\..\out\lua\"
 	"outdir_cpp":"..\..\..\out\cpp\"
+    "outdir_rs":"..\..\..\out\rs\"
 }
 
 .\projs\p2 目录下文件列表：gen_cfg.json ffffff.cs
@@ -41,6 +47,7 @@ using System.Collections.Generic;
 	"outdir_cs":"..\..\..\out\cs\"
 	"outdir_lua":"..\..\..\out\lua\"
 	"outdir_cpp":"..\..\..\out\cpp\"
+    "outdir_rs":"..\..\..\out\rs\"
 }
 
 
@@ -58,10 +65,14 @@ public partial class Cfg {
     public List<string> refs { get; set; }
     public string name { get; set; }
     public List<string> files { get; set; }
+
     public string outdir_cs { get; set; }
     public string outdir_lua { get; set; }
     public string outdir_cpp { get; set; }
     public string outdir_rs { get; set; }
+
+    public ushort typeid_from { get; set; } = 0;
+    public ushort typeid_to { get; set; } = ushort.MaxValue;
 }
 
 
@@ -319,8 +330,7 @@ partial class Cfg {
             cfg.outdir_cpp = Path.GetFullPath(cfg.outdir_cpp);
             if (!Directory.Exists(cfg.outdir_cpp)) throw new Exception("can't find outdir_cpp dir: " + cfg.outdir_cpp);
         }
-        if (!string.IsNullOrWhiteSpace(cfg.outdir_rs))
-        {
+        if (!string.IsNullOrWhiteSpace(cfg.outdir_rs)) {
             cfg.outdir_rs = Path.GetFullPath(cfg.outdir_rs);
             if (!Directory.Exists(cfg.outdir_rs)) throw new Exception("can't find outdir_rs dir: " + cfg.outdir_rs);
         }
@@ -352,14 +362,17 @@ partial class Cfg {
         // 填充 typeIdClassMappings
         foreach (var c in cfg.classs) {
             var id = c._GetTypeId();
-            if (id == null) throw new Exception("type: " + c.FullName + " miss [TypeId(xxxxxx)]");
+            if (id == null) {
+                throw new Exception("type: " + c.FullName + " miss [TypeId(xxxxxx)]");
+            }
+            if (!c._IsExternal() && (id.Value < cfg.typeid_from || id.Value > cfg.typeid_to)) {
+                throw new Exception("type: " + c.FullName + "'s TypeId: " + id + " out of range: " + cfg.typeid_from + "~" + cfg.typeid_to);
+            }
+            if (cfg.typeIdClassMappings.ContainsKey(id.Value)) {
+                throw new Exception("type: " + c.FullName + "'s typeId is duplicated with " + cfg.typeIdClassMappings[id.Value].FullName);
+            }
             else {
-                if (cfg.typeIdClassMappings.ContainsKey(id.Value)) {
-                    throw new Exception("type: " + c.FullName + "'s typeId is duplicated with " + cfg.typeIdClassMappings[id.Value].FullName);
-                }
-                else {
-                    cfg.typeIdClassMappings.Add(id.Value, c);
-                }
+                cfg.typeIdClassMappings.Add(id.Value, c);
             }
         }
 
@@ -367,7 +380,7 @@ partial class Cfg {
         foreach (var kv in cfg.typeIdClassMappings) {
             cfg.typeInfos.Add(kv.Value, new Info { type = kv.Value, typeId = kv.Key });
         }
-        foreach(var c in cfg.structs) {
+        foreach (var c in cfg.structs) {
             cfg.typeInfos.Add(c, new Info { type = c });
         }
 
