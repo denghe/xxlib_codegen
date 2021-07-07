@@ -66,7 +66,7 @@ $@"use xxlib::*;
 use xxlib_builder::*;{refs}
 
 #[allow(dead_code)]
-const  MD5:&'static str=""{StringHelpers.MD5PlaceHolder}"";
+const  MD5:&str=""{StringHelpers.MD5PlaceHolder}"";
 
 #[allow(dead_code,non_snake_case)]
 pub fn CodeGen_{cfg.name}(){{{tb}
