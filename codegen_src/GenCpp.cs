@@ -12,14 +12,21 @@ using System.Collections.Generic;
 
 public static class GenCpp {
 
+
     // 单纯类型：写 Data 时全程不需要用到 ObjManager, 且没有打开兼容模式( 成员只能是简单类型，可嵌套结构体和泛型，不可出现 类 或 Shared/Weak )
-    public static bool _IsPureType(this Type t) {
+    public static bool _IsPureType(this Type t, bool isFirst = true) {
         //if (t._IsExternal()) return t.IsValueType;
+        if (isFirst) {
+            TypeHelpers.tmpTypes.Clear();
+        }
+        TypeHelpers.tmpTypes.Add(t);
+
         if (t.IsEnum || t._IsNumeric() || t._IsString() || t._IsData()) return true;
         if (t.IsGenericType) {
             if (t._IsWeak() || t._IsShared()) return false;
             foreach (var ct in t.GetGenericArguments()) {
-                if (!_IsPureType(ct)) return false;
+                if (TypeHelpers.tmpTypes.Contains(ct)) continue;
+                if (!_IsPureType(ct, false)) return false;
             }
             return true;
         }
@@ -27,7 +34,8 @@ public static class GenCpp {
             if (t._HasCompatible()) return false;
             var fs = t._GetExtractFields();
             foreach (var f in fs) {
-                if (!_IsPureType(f.FieldType)) return false;
+                if (TypeHelpers.tmpTypes.Contains(f.FieldType)) continue;
+                if (!_IsPureType(f.FieldType, false)) return false;
             }
             return true;
         }

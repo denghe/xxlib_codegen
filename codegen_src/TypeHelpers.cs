@@ -12,6 +12,9 @@ public static partial class TypeHelpers {
     // 缓存当前 cfg 以简化传参
     public static Cfg cfg;
 
+    // 递归过程中防止死循环
+    public static HashSet<Type> tmpTypes = new HashSet<Type>();
+
     /**************************************************************************************************/
     // Is 系列
     /**************************************************************************************************/
@@ -207,18 +210,25 @@ public static partial class TypeHelpers {
     /// <summary>
     /// 递归判断 是否有任意成员变量类型是 class
     /// </summary>
-    public static bool _HasClassMember(this Type t) {
+    public static bool _HasClassMember(this Type t, bool isFirst = true) {
+        if (isFirst) {
+            tmpTypes.Clear();
+        }
+        tmpTypes.Add(t);
         if (t._IsExternal() && t.IsValueType) return false;
         if (t._IsClass()) return true;
         if (t._IsStruct()) {
             foreach (var m in t._GetFields()) {
-                if (m.FieldType._HasClassMember()) return true;
+                var ct = m.FieldType;
+                if (tmpTypes.Contains(ct)) continue;
+                if (ct._HasClassMember(false)) return true;
             }
             return false;
         }
         if (t.IsGenericType) {
             foreach (var ct in t.GenericTypeArguments) {
-                if (ct._HasClassMember()) return true;
+                if (tmpTypes.Contains(ct)) continue;
+                if (ct._HasClassMember(false)) return true;
             }
         }
         return false;
