@@ -60,8 +60,8 @@ public static partial class TypeHelpers {
         if (t._IsData()) {
             return "::xx::Data";
         }
-        else if (t._IsTuple()) {
-            string rtv = "::std::tuple<";
+        else if (t._IsTuple() || t._IsVariant()) {
+            string rtv = t._IsTuple() ? "::std::tuple<" : "::std::variant<";
             for (int i = 0; i < t.GenericTypeArguments.Length; ++i) {
                 if (i > 0) {
                     rtv += ", ";

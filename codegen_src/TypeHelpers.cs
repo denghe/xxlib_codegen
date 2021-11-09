@@ -144,6 +144,13 @@ public static partial class TypeHelpers {
     }
 
     /// <summary>
+    /// 返回 t 是否为 Variant<........>
+    /// </summary>
+    public static bool _IsVariant(this Type t) {
+        return t.IsGenericType && t.Namespace == nameof(TemplateLibrary) && t.Name.StartsWith("Variant`");
+    }
+
+    /// <summary>
     /// 返回 t 是否为 List<T>
     /// </summary>
     public static bool _IsList(this Type t) {
