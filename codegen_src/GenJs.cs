@@ -5,25 +5,24 @@
         var sb = new System.Text.StringBuilder();
 
         // header( import, md5, register )
-        sb.Append("import { Data, ObjBase } from './xx_data.js';");
 
         foreach (var c in cfg.refsCfgs) {
-            sb.Append(@"
-import * from '" + c.name + @".js'");
+            sb.Append(@"// <script language=""javascript"" src=""" + c.name + @".js""></script>
+");
         }
 
         sb.Append(@"
-var CodeGen_" + cfg.name + @"_md5 ='" + StringHelpers.MD5PlaceHolder + @"'
+var CodeGen_" + cfg.name + @"_md5 ='" + StringHelpers.MD5PlaceHolder + @"';
 ");
         // enums
         foreach (var e in cfg.enums) {
-            var en = e._GetTypeDecl_Lua();
-            sb.Append(e._GetDesc()._GetComment_Cpp(0) + @"
+            var en = e._GetTypeDecl_Js();
+            sb.Append(e._GetDesc()._GetComment_Js(0) + @"
 class " + en + @" {");
 
             var fs = e._GetEnumFields();
             foreach (var f in fs) {
-                sb.Append(f._GetDesc()._GetComment_Cpp(4) + @"
+                sb.Append(f._GetDesc()._GetComment_Js(4) + @"
     static " + f.Name + " = " + f._GetEnumValue(e) + ";");
             }
             sb.Append(@"
@@ -32,9 +31,9 @@ class " + en + @" {");
 
         // class & structs
         foreach (var c in cfg.localClasssStructs) {
-            var cn = c._GetTypeDecl_Lua();
-            sb.Append(c._GetDesc()._GetComment_Cpp(0) + @"
-class " + cn + @" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Lua() : "ObjBase") +@" {");
+            var cn = c._GetTypeDecl_Js();
+            sb.Append(c._GetDesc()._GetComment_Js(0) + @"
+class " + cn + (c._IsClass() ? (@" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Js() : "ObjBase")) : "") + @" {");
             if (c._IsClass()) {
                 sb.Append(@"
     static typeId = " + c._GetTypeId() + @";");
@@ -45,8 +44,8 @@ class " + cn + @" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Lua() : "
 
             var fs = c._GetFields();
             foreach (var f in fs) {
-                sb.Append(f._GetDesc()._GetComment_Lua(8) + @"
-    " + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + "; // " + f.FieldType._GetTypeDesc_Lua());
+                sb.Append(f._GetDesc()._GetComment_Js(4) + @"
+    " + f.Name + @" = " + f._GetDefaultValueDecl_Js(o) + "; // " + f.FieldType._GetTypeDesc_Js());
             }
             sb.Append(@"
     Read(d) {");
@@ -54,35 +53,41 @@ class " + cn + @" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Lua() : "
                 sb.Append(@"
         super.Read(d);");
             }
-            string ss = "";
             if (c._HasCompatible()) {
                 sb.Append(@"
         // compatible handle
-        let len = d.Ru32();
-        let e = d.offset - 4 + len;");
-                ss = "    ";
+        let e = d.offset - 4 + d.Ru32();");
+            }
+
+            if (fs.Exists(f => f.FieldType._IsList())) {
+                sb.Append(@"
+        let o, len;");
             }
 
             foreach (var f in fs) {
                 var t = f.FieldType;
                 string func;
                 if (t._IsList()) {     // 当前设计方案仅支持 1 层嵌套
-                    func = @$"let len = d.Rvu();
-{ss}        if (len > d.GetLeft()) throw new Error(`len : ${{len}} > d.GetLeft() : ${{d.GetLeft()}}`);
-{ss}        let o = [];
-{ss}        this.{f.Name} = o;
-{ss}        for (let i = 0; i < len; ++i) {{
-{ss}            {t._GetChildType()._GetReadCode_Lua("o[i]")}
-{ss}        }}";
+                    func = @$"len = d.Rvu();
+        o = [];
+        this.{f.Name} = o;
+        for (let i = 0; i < len; ++i) {{";
+                    if (t._GetChildType()._IsStruct()) {
+                        func += @$"
+            o[i] = new " + t._GetChildType()._GetTypeDecl_Js() + "();";
+                    }
+                    func += @$"
+            {t._GetChildType()._GetReadCode_Js("o[i]", "")}
+        }}";
                 }
                 else {
-                    func = t._GetReadCode_Lua("this." + f.Name);
+                    func = t._GetReadCode_Js(f.Name);
                 }
 
                 if (c._HasCompatible()) {
                     sb.Append(@"
         if (d.offset >= e) {
-            self." + f.Name + @" = " + f._GetDefaultValueDecl_Lua(o) + @"
+            this." + f.Name + @" = " + f._GetDefaultValueDecl_Js(o) + @"
         } else {");
                 }
 
@@ -90,7 +95,7 @@ class " + cn + @" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Lua() : "
                     throw new System.Exception("!!!");
 
                 sb.Append(@$"
-{ss}        " + func + @$"");
+        " + func + @$"");
 
                 if (c._HasCompatible()) {
                     sb.Append(@"
@@ -128,20 +133,16 @@ class " + cn + @" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Lua() : "
                 var t = f.FieldType;
                 string func;
                 if (t._IsList()) {     // 当前设计方案仅支持 1 层嵌套
-                    func = @$"
-        o = this.{f.Name};
+                    func = @$"o = this.{f.Name};
         len = o.length;
         d.Wvu(len);
         for (let i = 0; i < len; ++i) {{
-            {t._GetChildType()._GetWriteCode_Lua("o[i]")}
+            {t._GetChildType()._GetWriteCode_Js("o[i]", "")}
         }}";
                 }
                 else {
-                    func = t._GetWriteCode_Lua("this." + f.Name);
+                    func = t._GetWriteCode_Js(f.Name);
                 }
-
-                sb.Append(@"
-        // " + f.Name);
 
                 if (string.IsNullOrEmpty(func))
                     throw new System.Exception("!!!");
@@ -158,10 +159,11 @@ class " + cn + @" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Lua() : "
 
             sb.Append(@"
     }
-}
-
-Data.Register(" + cn + @");
-");
+}");
+            if (c._IsClass()) {
+                sb.Append(@"
+Data.Register(" + cn + @");");
+            }
         }
 
         sb._WriteToFile(System.IO.Path.Combine(cfg.outdir_js, cfg.name + ".js"));
