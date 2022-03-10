@@ -23,6 +23,7 @@ using System.Collections.Generic;
 	"outdir_lua":"..\out\lua\"					//
 	"outdir_cpp":"..\out\cpp\"					//
 	"outdir_rs":"..\out\rs\"					//
+	"outdir_js":"..\out\js\"					//
 
     "typeid_from": 1,                           // [TypeId( 值范围 从 )] 含 本身. 如果没有这项配置，则该值默认为 0
     "typeid_to": 99                             // [TypeId( 值范围 到 )] 含 本身. 如果没有这项配置，则该值默认为 uint16 最大值 65536
@@ -37,6 +38,7 @@ using System.Collections.Generic;
 	"outdir_lua":"..\..\..\out\lua\"
 	"outdir_cpp":"..\..\..\out\cpp\"
     "outdir_rs":"..\..\..\out\rs\"
+    "outdir_js":"..\..\..\out\js\"
 }
 
 .\projs\p2 目录下文件列表：gen_cfg.json ffffff.cs
@@ -48,6 +50,7 @@ using System.Collections.Generic;
 	"outdir_lua":"..\..\..\out\lua\"
 	"outdir_cpp":"..\..\..\out\cpp\"
     "outdir_rs":"..\..\..\out\rs\"
+    "outdir_js":"..\..\..\out\js\"
 }
 
 
@@ -70,6 +73,7 @@ public partial class Cfg {
     public string outdir_lua { get; set; }
     public string outdir_cpp { get; set; }
     public string outdir_rs { get; set; }
+    public string outdir_js { get; set; }
 
     public ushort typeid_from { get; set; } = 0;
     public ushort typeid_to { get; set; } = ushort.MaxValue;
@@ -316,7 +320,9 @@ partial class Cfg {
         if (string.IsNullOrWhiteSpace(cfg.outdir_cs)
             && string.IsNullOrWhiteSpace(cfg.outdir_lua)
             && string.IsNullOrWhiteSpace(cfg.outdir_cpp)
-            && string.IsNullOrWhiteSpace(cfg.outdir_rs)) throw new Exception("miss outdir_cs | outdir_lua | outdir_cpp | outdir_rs ?");
+            && string.IsNullOrWhiteSpace(cfg.outdir_rs)
+            && string.IsNullOrWhiteSpace(cfg.outdir_js)
+            ) throw new Exception("miss outdir_cs | outdir_lua | outdir_cpp | outdir_rs | outdir_js ?");
 
         if (!string.IsNullOrWhiteSpace(cfg.outdir_cs)) {
             cfg.outdir_cs = Path.GetFullPath(cfg.outdir_cs);
@@ -333,6 +339,10 @@ partial class Cfg {
         if (!string.IsNullOrWhiteSpace(cfg.outdir_rs)) {
             cfg.outdir_rs = Path.GetFullPath(cfg.outdir_rs);
             if (!Directory.Exists(cfg.outdir_rs)) throw new Exception("can't find outdir_rs dir: " + cfg.outdir_rs);
+        }
+        if (!string.IsNullOrWhiteSpace(cfg.outdir_js)) {
+            cfg.outdir_js = Path.GetFullPath(cfg.outdir_js);
+            if (!Directory.Exists(cfg.outdir_js)) throw new Exception("can't find outdir_js dir: " + cfg.outdir_js);
         }
 
         // 合并所有 refsCfgs 的所有源代码文件列表
