@@ -1,4 +1,4 @@
-﻿public static class GenJs {
+﻿public static class GenTs {
     public static Cfg cfg;
     public static void Gen() {
         cfg = TypeHelpers.cfg;
@@ -6,24 +6,41 @@
 
         // header( import, md5, register )
 
-        foreach (var c in cfg.refsCfgs) {
-            sb.Append(@"// <script language=""javascript"" src=""" + c.name + @".js""></script>
+        sb.AppendLine(@"import { Data, ObjBase } from './xx_data';");
+
+        foreach (var cfg in cfg.refsCfgs) {
+            sb.Append(@"import {");
+            foreach (var c in cfg.localClasssStructs) {
+                sb.Append(c._GetTypeDecl_Js() + ",");
+            }
+            if (cfg.localClasssStructs.Count > 0) {
+                sb.Length--;
+            }
+            sb.Append(@"} from './" + cfg.name + @"';
+export {");
+            foreach (var c in cfg.localClasssStructs) {
+                sb.Append(c._GetTypeDecl_Js() + ",");
+            }
+            if (cfg.localClasssStructs.Count > 0) {
+                sb.Length--;
+            }
+            sb.Append(@"};
 ");
         }
 
         sb.Append(@"
-var CodeGen_" + cfg.name + @"_md5 ='" + StringHelpers.MD5PlaceHolder + @"';
+export const CodeGen_" + cfg.name + @"_md5 ='" + StringHelpers.MD5PlaceHolder + @"';
 ");
         // enums
         foreach (var e in cfg.enums) {
             var en = e._GetTypeDecl_Js();
             sb.Append(e._GetDesc()._GetComment_Js(0) + @"
-class " + en + @" {");
+export enum " + en + @" {");
 
             var fs = e._GetEnumFields();
             foreach (var f in fs) {
                 sb.Append(f._GetDesc()._GetComment_Js(4) + @"
-    static " + f.Name + " = " + f._GetEnumValue(e) + ";");
+    " + f.Name + " = " + f._GetEnumValue(e) + ";");
             }
             sb.Append(@"
 }");
@@ -33,10 +50,14 @@ class " + en + @" {");
         foreach (var c in cfg.localClasssStructs) {
             var cn = c._GetTypeDecl_Js();
             sb.Append(c._GetDesc()._GetComment_Js(0) + @"
-class " + cn + (c._IsClass() ? (@" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Js() : "ObjBase")) : "") + @" {");
+export class " + cn + (c._IsClass() ? (@" extends "+(c._HasBaseType()? c.BaseType._GetTypeDecl_Js() : "ObjBase")) : "") + @" {");
             if (c._IsClass()) {
                 sb.Append(@"
-    static typeId = " + c._GetTypeId() + @";");
+    static typeId = " + c._GetTypeId() + @";
+    GetTypeId() {
+        return " + cn + @".typeId;
+    }
+    ");
             }
 
             var o = c._GetInstance();
@@ -166,6 +187,6 @@ Data.Register(" + cn + @");");
             }
         }
 
-        sb._WriteToFile(System.IO.Path.Combine(cfg.outdir_js, cfg.name + ".js"), false);
+        sb._WriteToFile(System.IO.Path.Combine(cfg.outdir_js, cfg.name + ".ts"), false);
     }
 }

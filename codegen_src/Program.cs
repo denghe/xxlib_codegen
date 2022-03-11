@@ -46,6 +46,7 @@ public static class Program {
                     if (!string.IsNullOrWhiteSpace(TypeHelpers.cfg.outdir_js))
                     {
                         GenJs.Gen();
+                        GenTs.Gen();
                     }
                 }
                 catch (Exception ex) {
