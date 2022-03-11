@@ -92,7 +92,7 @@ public static partial class TypeHelpers {
             return owner + varName + " = d.R" + t._GetRWFuncName_Js() + "();";
         }
         else if (t._IsWeak() || t._IsShared()) {
-            return owner + varName + "d.Read();";
+            return owner + varName + " = d.Read();";
         }
         else if (t._IsClass() || t._IsStruct()) {
             return owner + varName + @".Read(d);";
@@ -138,7 +138,7 @@ public static partial class TypeHelpers {
         }
         else if (t._IsNullable()) {
             var bak = t;
-            var s = "if (" + owner + varName + " === null || " + owner + varName + " === undefined) d.Wu8(0) else { d.Wu8(1); ";
+            var s = "if (" + owner + varName + " === null || " + owner + varName + " === undefined) d.Wu8(0); else { d.Wu8(1); ";
             t = t._GetChildType();
             if (t._IsData()) {
                 s += "d.Wdata(" + owner + varName + "); }";

@@ -66,7 +66,7 @@ $@"use xxlib::*;
 use xxlib_builder::*;{refs}
 
 #[allow(dead_code)]
-const  MD5:&'static str=""{StringHelpers.MD5PlaceHolder}"";
+const  MD5:&str=""{StringHelpers.MD5PlaceHolder}"";
 
 #[allow(dead_code,non_snake_case)]
 pub fn CodeGen_{cfg.name}(){{{tb}
@@ -100,6 +100,9 @@ pub fn CodeGen_{cfg.name}(){{{tb}
         var base_type = e.BaseType._GetStructTypeBase_Rust();
 
         sb.Append($@"
+{e._GetDesc()._GetComment_Rust(0)}
+#[allow(unreachable_patterns,unused_imports,dead_code,non_snake_case,non_camel_case_types)]
+pub const {name.ToUpper()}_TYPE_ID:u16 = {typeid}u16;
 {e._GetDesc()._GetComment_Rust(0)}
 #[allow(unused_imports,dead_code,non_snake_case,non_camel_case_types)]
 #[derive(build,Debug)]
