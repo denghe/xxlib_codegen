@@ -154,6 +154,7 @@ public static partial class TypeHelpers {
             }
             else
                 throw new System.Exception("unsupported type: " + bak.FullName);
+            return s;
         }
         throw new Exception("unsupported type");
     }
