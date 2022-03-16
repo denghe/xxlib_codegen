@@ -32,7 +32,7 @@ public static partial class TypeHelpers {
             return v == null ? "\"\"" : ("\"" + ((string)v).Replace("\"", "\"\"") + "\"");
         }
         if (t._IsNullable() || t._IsNumeric()) {
-            return v == null ? "null" : v.ToString().ToLower();
+            return v == null ? "null" : (v.ToString().ToLower() + (t._IsIntUint64() ? "n":""));
         }
         if (t.IsEnum) {
             var sv = v._GetEnumInteger(t);

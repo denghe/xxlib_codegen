@@ -114,6 +114,16 @@ public static partial class TypeHelpers {
             );
     }
 
+    /// <summary>
+    /// 返回 t 是否为 [u]int64
+    /// </summary>
+    public static bool _IsIntUint64(this Type t) {
+        return t.Namespace == nameof(System) && t.IsValueType && (
+                t.Name == "UInt64" ||
+                t.Name == "Int64"
+            );
+    }
+
     public static bool _IsNullableNumber(this Type t)
      => t._IsNullable() && t.GenericTypeArguments[0]._IsNumeric();
 
