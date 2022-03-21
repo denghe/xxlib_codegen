@@ -23,6 +23,7 @@ using System.Collections.Generic;
 	"outdir_lua":"..\out\lua\"					//
 	"outdir_cpp":"..\out\cpp\"					//
 	"outdir_rs":"..\out\rs\"					//
+	"outdir_js":"..\out\js\"					//
 
     "typeid_from": 1,                           // [TypeId( 值范围 从 )] 含 本身. 如果没有这项配置，则该值默认为 0
     "typeid_to": 99                             // [TypeId( 值范围 到 )] 含 本身. 如果没有这项配置，则该值默认为 uint16 最大值 65536
@@ -37,6 +38,7 @@ using System.Collections.Generic;
 	"outdir_lua":"..\..\..\out\lua\"
 	"outdir_cpp":"..\..\..\out\cpp\"
     "outdir_rs":"..\..\..\out\rs\"
+    "outdir_js":"..\..\..\out\js\"
 }
 
 .\projs\p2 目录下文件列表：gen_cfg.json ffffff.cs
@@ -48,6 +50,7 @@ using System.Collections.Generic;
 	"outdir_lua":"..\..\..\out\lua\"
 	"outdir_cpp":"..\..\..\out\cpp\"
     "outdir_rs":"..\..\..\out\rs\"
+    "outdir_js":"..\..\..\out\js\"
 }
 
 
@@ -61,7 +64,8 @@ using System.Collections.Generic;
 
 
 // 这部分映射 json 结构
-public partial class Cfg {
+public partial class Cfg
+{
     public List<string> refs { get; set; }
     public string name { get; set; }
     public List<string> files { get; set; }
@@ -70,6 +74,7 @@ public partial class Cfg {
     public string outdir_lua { get; set; }
     public string outdir_cpp { get; set; }
     public string outdir_rs { get; set; }
+    public string outdir_js { get; set; }
 
     public ushort typeid_from { get; set; } = 0;
     public ushort typeid_to { get; set; } = ushort.MaxValue;
@@ -77,7 +82,8 @@ public partial class Cfg {
 
 
 // 常用生成器需求功能扩展
-partial class Cfg {
+partial class Cfg
+{
 
     /// <summary>
     /// refs 指向的 cfgs
@@ -180,7 +186,8 @@ partial class Cfg {
 /// <summary>
 /// Type 扩展信息. 具体生成可进一步 partial 扩展填充
 /// </summary>
-public partial class Info {
+public partial class Info
+{
     public Type type;
     public ushort? typeId;
 }
@@ -204,21 +211,25 @@ public partial class Info {
 /*********************************************************************************************************/
 
 // 初始化功能扩展
-partial class Cfg {
+partial class Cfg
+{
     // 用于查找引用
     public static Dictionary<string, Cfg> allConfigs = new Dictionary<string, Cfg>();
 
     // json -> type
-    public static T DeSerialize<T>(string json) {
+    public static T DeSerialize<T>(string json)
+    {
         T obj = Activator.CreateInstance<T>();
-        using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json))) {
+        using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)))
+        {
             System.Runtime.Serialization.Json.DataContractJsonSerializer serializer = new System.Runtime.Serialization.Json.DataContractJsonSerializer(obj.GetType());
             return (T)serializer.ReadObject(ms);
         }
     }
 
     // json -> assembly
-    public static Assembly CreateAssembly(string asmName, IEnumerable<string> fileNames) {
+    public static Assembly CreateAssembly(string asmName, IEnumerable<string> fileNames)
+    {
         var dllPath = RuntimeEnvironment.GetRuntimeDirectory();
 
         var compilation = CSharpCompilation.Create(asmName)
@@ -233,12 +244,15 @@ partial class Cfg {
 #pragma warning disable 0169, 0414
 " + File.ReadAllText(fn)));
 
-        foreach (var d in compilation.GetDiagnostics()) {
+        foreach (var d in compilation.GetDiagnostics())
+        {
             Console.WriteLine(d);
         }
-        using (var m = new MemoryStream()) {
+        using (var m = new MemoryStream())
+        {
             var r = compilation.Emit(m);
-            if (r.Success) {
+            if (r.Success)
+            {
                 m.Seek(0, SeekOrigin.Begin);
                 return AssemblyLoadContext.Default.LoadFromStream(m);
             }
@@ -247,23 +261,28 @@ partial class Cfg {
     }
 
     // 递归合并 files 填充到 list
-    public static void FillCsFiles(Cfg cfg, ref List<string> list) {
+    public static void FillCsFiles(Cfg cfg, ref List<string> list)
+    {
         list.AddRange(cfg.files);
-        foreach (var rc in cfg.refsCfgs) {
+        foreach (var rc in cfg.refsCfgs)
+        {
             FillCsFiles(rc, ref list);
         }
     }
 
     // 检查 tar 在 ref 树中是否存在
-    public bool RecursiveRefExists(Cfg tar) {
-        foreach (var c in refsCfgs) {
+    public bool RecursiveRefExists(Cfg tar)
+    {
+        foreach (var c in refsCfgs)
+        {
             if (c.RecursiveRefExists(tar)) return true;
         }
         return false;
     }
 
     // json -> cfg instance
-    public static Cfg ReadFrom(string fn) {
+    public static Cfg ReadFrom(string fn)
+    {
         // 转为完全路径
         fn = Path.GetFullPath(fn);
 
@@ -271,7 +290,8 @@ partial class Cfg {
         if (allConfigs.ContainsKey(fn)) return allConfigs[fn];
 
         // 检查文件是否存在
-        if (!File.Exists(fn)) {
+        if (!File.Exists(fn))
+        {
             Console.WriteLine("can't open code gen config json file: ", fn);
             Environment.Exit(-1);
         }
@@ -287,10 +307,13 @@ partial class Cfg {
         allConfigs.Add(fn, cfg);
 
         // 如果有填写 refs, 就加载
-        if (cfg.refs != null) {
-            foreach (var s in cfg.refs) {
+        if (cfg.refs != null)
+        {
+            foreach (var s in cfg.refs)
+            {
                 var c = ReadFrom(s);
-                if (!cfg.refsCfgs.Contains(c)) {
+                if (!cfg.refsCfgs.Contains(c))
+                {
                     cfg.refsCfgs.Add(c);
                 }
             }
@@ -307,7 +330,8 @@ partial class Cfg {
 
 
         // 转为完整路径
-        for (int i = 0; i < cfg.files.Count; i++) {
+        for (int i = 0; i < cfg.files.Count; i++)
+        {
             cfg.files[i] = Path.GetFullPath(cfg.files[i]);
         }
 
@@ -316,23 +340,34 @@ partial class Cfg {
         if (string.IsNullOrWhiteSpace(cfg.outdir_cs)
             && string.IsNullOrWhiteSpace(cfg.outdir_lua)
             && string.IsNullOrWhiteSpace(cfg.outdir_cpp)
-            && string.IsNullOrWhiteSpace(cfg.outdir_rs)) throw new Exception("miss outdir_cs | outdir_lua | outdir_cpp | outdir_rs ?");
+            && string.IsNullOrWhiteSpace(cfg.outdir_rs)
+            && string.IsNullOrWhiteSpace(cfg.outdir_js)
+            ) throw new Exception("miss outdir_cs | outdir_lua | outdir_cpp | outdir_rs | outdir_js ?");
 
-        if (!string.IsNullOrWhiteSpace(cfg.outdir_cs)) {
+        if (!string.IsNullOrWhiteSpace(cfg.outdir_cs))
+        {
             cfg.outdir_cs = Path.GetFullPath(cfg.outdir_cs);
             if (!Directory.Exists(cfg.outdir_cs)) throw new Exception("can't find outdir_cs dir: " + cfg.outdir_cs);
         }
-        if (!string.IsNullOrWhiteSpace(cfg.outdir_lua)) {
+        if (!string.IsNullOrWhiteSpace(cfg.outdir_lua))
+        {
             cfg.outdir_lua = Path.GetFullPath(cfg.outdir_lua);
             if (!Directory.Exists(cfg.outdir_lua)) throw new Exception("can't find outdir_lua dir: " + cfg.outdir_lua);
         }
-        if (!string.IsNullOrWhiteSpace(cfg.outdir_cpp)) {
+        if (!string.IsNullOrWhiteSpace(cfg.outdir_cpp))
+        {
             cfg.outdir_cpp = Path.GetFullPath(cfg.outdir_cpp);
             if (!Directory.Exists(cfg.outdir_cpp)) throw new Exception("can't find outdir_cpp dir: " + cfg.outdir_cpp);
         }
-        if (!string.IsNullOrWhiteSpace(cfg.outdir_rs)) {
+        if (!string.IsNullOrWhiteSpace(cfg.outdir_rs))
+        {
             cfg.outdir_rs = Path.GetFullPath(cfg.outdir_rs);
             if (!Directory.Exists(cfg.outdir_rs)) throw new Exception("can't find outdir_rs dir: " + cfg.outdir_rs);
+        }
+        if (!string.IsNullOrWhiteSpace(cfg.outdir_js))
+        {
+            cfg.outdir_js = Path.GetFullPath(cfg.outdir_js);
+            if (!Directory.Exists(cfg.outdir_js)) throw new Exception("can't find outdir_js dir: " + cfg.outdir_js);
         }
 
         // 合并所有 refsCfgs 的所有源代码文件列表
@@ -360,27 +395,34 @@ partial class Cfg {
         FillLists(cfg);
 
         // 填充 typeIdClassMappings
-        foreach (var c in cfg.classs) {
+        foreach (var c in cfg.classs)
+        {
             var id = c._GetTypeId();
-            if (id == null) {
+            if (id == null)
+            {
                 throw new Exception("type: " + c.FullName + " miss [TypeId(xxxxxx)]");
             }
-            if (!c._IsExternal() && (id.Value < cfg.typeid_from || id.Value > cfg.typeid_to)) {
+            if (!c._IsExternal() && (id.Value < cfg.typeid_from || id.Value > cfg.typeid_to))
+            {
                 throw new Exception("type: " + c.FullName + "'s TypeId: " + id + " out of range: " + cfg.typeid_from + "~" + cfg.typeid_to);
             }
-            if (cfg.typeIdClassMappings.ContainsKey(id.Value)) {
+            if (cfg.typeIdClassMappings.ContainsKey(id.Value))
+            {
                 throw new Exception("type: " + c.FullName + "'s typeId is duplicated with " + cfg.typeIdClassMappings[id.Value].FullName);
             }
-            else {
+            else
+            {
                 cfg.typeIdClassMappings.Add(id.Value, c);
             }
         }
 
         // 填充 typeInfos
-        foreach (var kv in cfg.typeIdClassMappings) {
+        foreach (var kv in cfg.typeIdClassMappings)
+        {
             cfg.typeInfos.Add(kv.Value, new Info { type = kv.Value, typeId = kv.Key });
         }
-        foreach (var c in cfg.structs) {
+        foreach (var c in cfg.structs)
+        {
             cfg.typeInfos.Add(c, new Info { type = c });
         }
 
@@ -398,10 +440,12 @@ partial class Cfg {
     }
 
     // fill cfg.xxxxxxxs lists
-    public static void FillLists(Cfg cfg) {
+    public static void FillLists(Cfg cfg)
+    {
         // 归并 refs asm 所有 types
         var allExts = new List<Type>();
-        foreach (var rc in cfg.refsCfgs) {
+        foreach (var rc in cfg.refsCfgs)
+        {
             allExts.AddRange(rc.types);
         }
         // 得到所有 type 的名称( 直接对比 type 的话，跨 asm 会不同 )

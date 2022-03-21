@@ -6,6 +6,7 @@
   "outdir_lua": "../out/lua/",
   "outdir_cpp": "../out/cpp/",
   "outdir_rs": "../out/rust/",
+  "outdir_js": "../out/js/",
   "typeid_from": 1,
   "typeid_to": 99
 }

@@ -88,19 +88,8 @@ public static partial class TypeHelpers {
                             var ct = t.GenericTypeArguments[0];
                             return "::std::vector" + @"<" + ct._GetTypeDecl_Cpp() + ">";
                         }
-                    case "Queue`1": {
-                            var ct = t.GenericTypeArguments[0];
-                            return "::std::queue" + @"<" + ct._GetTypeDecl_Cpp() + ">";
-                        }
-                    case "Deque`1": {
-                            var ct = t.GenericTypeArguments[0];
-                            return "::std::deque" + @"<" + ct._GetTypeDecl_Cpp() + ">";
-                        }
                     case "Dict`2": {
                             return "::std::map" + @"<" + t.GenericTypeArguments[0]._GetTypeDecl_Cpp() + ", " + t.GenericTypeArguments[1]._GetTypeDecl_Cpp() + ">";
-                        }
-                    case "HashMap`2": {
-                            return "::std::unordered_map" + @"<" + t.GenericTypeArguments[0]._GetTypeDecl_Cpp() + ", " + t.GenericTypeArguments[1]._GetTypeDecl_Cpp() + ">";
                         }
                     case "Pair`2": {
                             return "::std::pair" + @"<" + t.GenericTypeArguments[0]._GetTypeDecl_Cpp() + ", " + t.GenericTypeArguments[1]._GetTypeDecl_Cpp() + ">";
@@ -151,9 +140,7 @@ public static partial class TypeHelpers {
                         return "::std::string";
                 }
             }
-            var n = t._GetNamespace_Cpp(true);
-            if (n == "::") n = "";
-            return n + "::" + t.Name;
+            return t._GetNamespace_Cpp(false) + "::" + t.Name;
         }
     }
 

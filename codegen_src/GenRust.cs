@@ -103,6 +103,7 @@ pub fn CodeGen_{cfg.name}(){{{tb}
 {e._GetDesc()._GetComment_Rust(0)}
 #[allow(unreachable_patterns,unused_imports,dead_code,non_snake_case,non_camel_case_types)]
 pub const {name.ToUpper()}_TYPE_ID:u16 = {typeid}u16;
+{e._GetDesc()._GetComment_Rust(0)}
 #[allow(unused_imports,dead_code,non_snake_case,non_camel_case_types)]
 #[derive(build,Debug)]
 #[cmd(typeid({typeid}),compatible({cp}))]

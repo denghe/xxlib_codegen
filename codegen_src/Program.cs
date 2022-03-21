@@ -43,6 +43,11 @@ public static class Program {
                     {
                         GenRust.Gen();
                     }
+                    if (!string.IsNullOrWhiteSpace(TypeHelpers.cfg.outdir_js))
+                    {
+                        GenJs.Gen();
+                        GenTs.Gen();
+                    }
                 }
                 catch (Exception ex) {
                     TipsAndExit("生成失败: " + ex.Message + "\r\n" + ex.StackTrace, -1);
