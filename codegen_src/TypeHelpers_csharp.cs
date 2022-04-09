@@ -33,13 +33,58 @@ public static partial class TypeHelpers {
             else if (t.Namespace == nameof(System)) {
                 switch (t.Name) {
                     case "Object":
-                        return "ISerde";
+                        return "xx.ISerde";
                     default:
                         throw new NotSupportedException();
                 }
             }
 
-            return t.FullName + ",ISerde";
+            return t.FullName + ", xx.ISerde";
+            //throw new Exception("unhandled data type");
+        }
+    }
+
+    /// <summary>
+    /// 获取 C# 的类型声明串
+    /// </summary>
+    public static string _GetStructTypeBase_Csharp(this Type t)
+    {
+        if (t._IsNullable())
+        {
+            throw new NotSupportedException();
+        }
+        if (t.IsArray)
+        {
+            throw new NotSupportedException();
+            //return _GetCSharpTypeDecl(t.GetElementType()) + "[]";
+        }
+        else if (t._IsTuple())
+        {
+            throw new NotSupportedException();
+        }
+        else if (t.IsEnum)
+        {
+            throw new NotSupportedException();
+        }
+        else
+        {
+            if (t.Namespace == nameof(TemplateLibrary))
+            {
+                throw new NotSupportedException();
+            }
+            else if (t.Namespace == nameof(System))
+            {
+                switch (t.Name)
+                {
+                    case "ValueType":
+                    case "Object":
+                        return "";
+                    default:
+                        throw new NotSupportedException();
+                }
+            }
+
+            return " : "+t.FullName;
             //throw new Exception("unhandled data type");
         }
     }
@@ -165,8 +210,12 @@ public static partial class TypeHelpers {
     /// 获取 C# 的类型声明串
     /// </summary>
     public static string _GetTypeDecl_Csharp(this Type t) {
+
+        if (t._IsNullableNumber())
+            return t.GenericTypeArguments[0]._GetTypeDecl_Csharp()+"?";
+        
         if (t._IsNullable()) {
-            return t.GenericTypeArguments[0]._GetTypeDecl_Csharp() + "?";
+            return t.GenericTypeArguments[0]._GetTypeDecl_Csharp();
         }
         if (t.IsArray) {
             if (t.FullName == "System.Byte[]")

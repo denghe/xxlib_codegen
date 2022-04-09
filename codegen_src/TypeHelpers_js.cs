@@ -10,21 +10,21 @@ using System.Text;
 public static partial class TypeHelpers {
 
     /// <summary>
-    /// 获取 LUA 的 字段 默认值
+    /// 获取 JS 的 字段 默认值
     /// </summary>
-    public static string _GetDefaultValueDecl_Lua(this FieldInfo f, object o) {
+    public static string _GetDefaultValueDecl_Js(this FieldInfo f, object o) {
         var t = f.FieldType;
         if (t._IsWeak() || t._IsShared()) {
             return "null";
         }
         if (t._IsClass() || t._IsStruct()) {
-            return t._GetTypeDecl_Lua() + ".Create()";
+            return "new " + t._GetTypeDecl_Js() + "()";
         }
         if (t._IsData()) {
-            return "NewXxData()";
+            return "new Data()";
         }
         if (t._IsList()) {
-            return "{}";
+            return "[]";
         }
 
         var v = f.GetValue(o);
@@ -32,14 +32,14 @@ public static partial class TypeHelpers {
             return v == null ? "\"\"" : ("\"" + ((string)v).Replace("\"", "\"\"") + "\"");
         }
         if (t._IsNullable() || t._IsNumeric()) {
-            return v == null ? "null" : v.ToString().ToLower();
+            return v == null ? "null" : (v.ToString().ToLower() + (t._IsIntUint64() ? "n" : ""));
         }
         if (t.IsEnum) {
             var sv = v._GetEnumInteger(t);
             // 如果 v 的值在枚举中找不到, 输出数字
             var fs = t._GetEnumFields();
             if (fs.Exists(f => f._GetEnumValue(t).ToString() == sv)) {
-                return t._GetTypeDecl_Lua() + "." + v.ToString();
+                return t._GetTypeDecl_Js() + "." + v.ToString();
             }
             else {
                 return v._GetEnumInteger(t).ToString();
@@ -49,52 +49,31 @@ public static partial class TypeHelpers {
         throw new Exception("unsupported type: " + t.FullName + " " + f.Name + " in " + f.DeclaringType.FullName);
     }
 
-    // todo: 遇到 Shared 去壳, 遇到不包 Shared 的 class 报错
-
     /// <summary>
-    /// 获取 LUA 的类型声明串
+    /// 获取 Js 的类型声明串
     /// </summary>
-    public static string _GetTypeDecl_Lua(this Type t) {
-        if (t._IsNullable()) {
-            return "Nullable_" + _GetTypeDecl_Lua(t.GenericTypeArguments[0]);
-        }
-        else if (t._IsWeak()) {
-            return "Weak_" + _GetTypeDecl_Lua(t.GenericTypeArguments[0]);
-        }
-        else if (t._IsList()) {
-            string rtv = t.Name.Substring(0, t.Name.IndexOf('`')) + "_";
-            for (int i = 0; i < t.GenericTypeArguments.Length; ++i) {
-                if (i > 0)
-                    rtv += "_";
-                rtv += _GetTypeDecl_Lua(t.GenericTypeArguments[i]);
-            }
-            rtv += "_";
-            return rtv;
-        }
-        else if (t.Namespace == nameof(System) || t.Namespace == nameof(TemplateLibrary)) {
-            return t.Name;
-        }
+    public static string _GetTypeDecl_Js(this Type t) {
         return t.FullName.Replace(".", "_");
     }
 
     /// <summary>
-    /// 获取 LUA 的 field type 备注
+    /// 获取 Js 的 field type 备注
     /// </summary>
-    public static string _GetTypeDesc_Lua(this Type t) {
+    public static string _GetTypeDesc_Js(this Type t) {
         if (t._IsNullable()) {
-            return "Nullable<" + _GetTypeDesc_Lua(t.GenericTypeArguments[0]) + ">";
+            return "Nullable<" + _GetTypeDesc_Js(t.GenericTypeArguments[0]) + ">";
         }
         else if (t._IsData()) {
             return "XxData";
         }
         else if (t._IsWeak()) {
-            return "Weak<" + _GetTypeDesc_Lua(t.GenericTypeArguments[0]) + ">";
+            return "Weak<" + _GetTypeDesc_Js(t.GenericTypeArguments[0]) + ">";
         }
         else if (t._IsShared()) {
-            return "Shared<" + _GetTypeDesc_Lua(t.GenericTypeArguments[0]) + ">";
+            return "Shared<" + _GetTypeDesc_Js(t.GenericTypeArguments[0]) + ">";
         }
         else if (t._IsList()) {
-            return "List<" + _GetTypeDesc_Lua(t.GenericTypeArguments[0]) + ">";
+            return "List<" + _GetTypeDesc_Js(t.GenericTypeArguments[0]) + ">";
         }
         else if (t.Namespace == nameof(System) || t.Namespace == nameof(TemplateLibrary)) {
             return t.Name;
@@ -102,84 +81,88 @@ public static partial class TypeHelpers {
         return t.FullName;
     }
 
-    public static string _GetReadCode_Lua(this Type t, string varName) {
+    public static string _GetReadCode_Js(this Type t, string varName, string owner = "this.") {
         if (t._IsData()) {
-            return "r, " + varName + " = d:Rdata()";
+            return owner + varName + " = d.Rdata();";
         }
         else if (t._IsString()) {
-            return "r, " + varName + " = d:Rstr()";
+            return owner + varName + " = d.Rstr();";
         }
         else if (t._IsNumeric() || t.IsEnum) {
-            return "r, " + varName + " = d:R" + t._GetRWFuncName_Lua() + "()";
+            return owner + varName + " = d.R" + t._GetRWFuncName_Js() + "();";
         }
         else if (t._IsWeak() || t._IsShared()) {
-            return "r, " + varName + " = om:Read()";
+            return owner + varName + " = d.Read();";
         }
         else if (t._IsClass() || t._IsStruct()) {
-            return varName + @" = " + t._GetTypeDecl_Lua() + @".Create(); r = " + varName + ":Read(om)";
+            return owner + varName + @".Read(d);";
         }
         else if (t._IsNullable()) {
             var bak = t;
             t = t._GetChildType();
+            var s = "let n = d.Ru8(); if (n == 0) " + owner + varName + " = null; else { ";
             if (t._IsData()) {
-                return "r, " + varName + " = d:Rndata()";
+                s += owner + varName + " = d.Rdata(); }";
             }
             else if (t._IsString()) {
-                return "r, " + varName + " = d:Rnstr()";
+                s+= owner + varName + " = d.Rstr(); }";
             }
             else if (t._IsNumeric() || t.IsEnum) {
-                return "r, " + varName + " = d:Rn" + t._GetRWFuncName_Lua() + "()";
+                s += owner + varName + " = d.R" + t._GetRWFuncName_Js() + "(); }";
             }
             else if (t._IsClass() || t._IsStruct()) {
-                return "r, n = d:Ru8(); if r ~= 0 then return r end; if n == 0 then " + varName + " = null else " + varName + @" = " + t._GetTypeDecl_Lua() + @".Create(); r = " + varName + ":Read(om) end";
+                s += owner + varName + @" = new " + t._GetTypeDecl_Js() + @"(); " + owner + varName + @".Read(d); }";
             }
             else
                 throw new System.Exception("unsupported type: " + bak.FullName);
+            return s;
         }
         throw new Exception("unsupported type");
     }
 
-    public static string _GetWriteCode_Lua(this Type t, string varName) {
+    public static string _GetWriteCode_Js(this Type t, string varName, string owner = "this.") {
         if (t._IsData()) {
-            return "d:Wdata(" + varName + ")";
+            return "d.Wdata(" + owner + varName + ");";
         }
         else if (t._IsString()) {
-            return "d:Wstr(" + varName + ")";
+            return "d.Wstr(" + owner + varName + ");";
         }
         else if (t._IsNumeric() || t.IsEnum) {
-            return "d:W" + t._GetRWFuncName_Lua() + "(" + varName + ")";
+            return "d.W" + t._GetRWFuncName_Js() + "(" + owner + varName + ");";
         }
         else if (t._IsWeak() || t._IsShared()) {
-            return "om:Write(" + varName + ")";
+            return "d.Write(" + owner + varName + ");";
         }
         else if (t._IsClass() || t._IsStruct()) {
-            return varName + @":Write(om)";
+            return owner + varName + @".Write(d);";
         }
         else if (t._IsNullable()) {
             var bak = t;
+            var s = "if (" + owner + varName + " === null || " + owner + varName + " === undefined) d.Wu8(0); else { d.Wu8(1); ";
             t = t._GetChildType();
             if (t._IsData()) {
-                return "d:Wndata(" + varName + ")";
+                s += "d.Wdata(" + owner + varName + "); }";
             }
             else if (t._IsString()) {
-                return "d:Wnstr(" + varName + ")";
+                s += "d.Wstr(" + owner + varName + "); }";
             }
             else if (t._IsNumeric() || t.IsEnum) {
-                return "d:Wn" + t._GetRWFuncName_Lua() + "(" + varName + ")";
+                s += "d.W" + t._GetRWFuncName_Js() + "(" + owner + varName + "); }";
             }
             else if (t._IsClass() || t._IsStruct()) {
-                return "if " + varName + " == null then d:Wu8(0) else d:Wu8(1); " + varName + ":Write(om) end";
+                s += owner + varName + ".Write(d); }";
             }
             else
                 throw new System.Exception("unsupported type: " + bak.FullName);
+            return s;
         }
-        throw new Exception("unsupported type");
+        throw new Exception($"unsupported type:{t.FullName}");
     }
 
     /// <summary>
-    /// 获取 field read write 的 d:R/W ??? 部分. 仅针对 Numeric & Enum
+    /// 获取 field read write 的 d.R/W ??? 部分. 仅针对 Numeric & Enum
     /// </summary>
-    public static string _GetRWFuncName_Lua(this Type t) {
+    public static string _GetRWFuncName_Js(this Type t) {
         if (t._IsNumeric()) {
             switch (t.Name) {
                 case "Byte":
@@ -187,9 +170,9 @@ public static partial class TypeHelpers {
                 case "UInt8":
                     return "u8";
                 case "UInt16":
-                    return "vu16";
+                    return "vu";
                 case "UInt32":
-                    return "vu32";
+                    return "vu";
                 case "UInt64":
                     return "vu64";
                 case "SByte":
@@ -197,9 +180,9 @@ public static partial class TypeHelpers {
                 case "Int8":
                     return "i8";
                 case "Int16":
-                    return "vi16";
+                    return "vi";
                 case "Int32":
-                    return "vi32";
+                    return "vi";
                 case "Int64":
                     return "vi64";
                 case "Double":
@@ -221,13 +204,13 @@ public static partial class TypeHelpers {
                 case "SByte":
                     return "i8";
                 case "UInt16":
-                    return "vu16";
+                    return "vu";
                 case "Int16":
-                    return "vi16";
+                    return "vi";
                 case "UInt32":
-                    return "vu32";
+                    return "vu";
                 case "Int32":
-                    return "vi32";
+                    return "vi";
                 case "UInt64":
                     return "vu64";
                 case "Int64":
@@ -238,15 +221,16 @@ public static partial class TypeHelpers {
     }
 
     /// <summary>
-    /// 获取 LUA 风格的注释
+    /// 获取 Js 风格的注释
     /// </summary>
-    public static string _GetComment_Lua(this string s, int space) {
+    public static string _GetComment_Js(this string s, int space) {
         if (s.Trim() == "")
             return "";
         var sps = new string(' ', space);
-        return @"
-" + sps + @"--[[
-" + sps + s + @"
-" + sps + "]]";
+        s = s.Replace("\r\n", "\n")
+         .Replace("\r", "\n")
+         .Replace("\n", "\r\n" + sps + "// ");
+        return "\r\n"
+ + sps + @"// " + s;
     }
 }

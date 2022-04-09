@@ -73,7 +73,7 @@ public static partial class TypeHelpers {
         }
         else if (t.IsEnum)  // enum & struct
         {
-            return "::" + (t._IsExternal() ? "" : ("::")) + t.FullName.Replace(".", "::");
+            return t._GetNamespace_Cpp(false) + "::" + t.Name;
         }
         else {
             if (t.Namespace == nameof(TemplateLibrary)) {
@@ -140,8 +140,7 @@ public static partial class TypeHelpers {
                         return "::std::string";
                 }
             }
-            return "::" + (t._IsExternal() ? "" : ("::")) + t.FullName.Replace(".", "::");
-            //return (t._IsExternal() ? "" : ("::" + templateName)) + "::" + t.FullName.Replace(".", "::") + (t.IsValueType ? "" : ((t._IsExternal() && !t._GetExternalSerializable()) ? "" : suffix));
+            return t._GetNamespace_Cpp(false) + "::" + t.Name;
         }
     }
 
@@ -182,5 +181,12 @@ public static partial class TypeHelpers {
          .Replace("\n", "\r\n" + sps + "// ");
         return "\r\n"
  + sps + @"// " + s;
+    }
+
+    /// <summary>
+    /// 获取 Cpp 风格的 namespace
+    /// </summary>
+    public static string _GetNamespace_Cpp(this Type t, bool hasPrefix = true) {
+        return (hasPrefix ? "::" : "") + (t.Namespace == null ? "" : t.Namespace.Replace(".", "::"));
     }
 }

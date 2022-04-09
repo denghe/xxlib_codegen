@@ -10,7 +10,46 @@ using System.Collections.Generic;
 // 针对 Weak<T> 类成员属性, 生成 xx::Weak<T>
 // 针对 struct 或标记有 [Struct] 的 class: 生成 ObjFuncs 模板特化适配
 
+partial class Info {
+    public bool? _isSimpleType;
+    public bool isSimpleType {
+        get {
+            return _isSimpleType ?? false;
+        }
+    }
+
+    public static bool CheckIsSimpleType(Type t) {
+        if (t.IsEnum || t._IsNumeric() || t._IsString() || t._IsData()) return true;
+        if (t._IsList() || t._IsNullable()) return CheckIsSimpleType(t._GetChildType());
+        if (t._IsClass() || t._IsStruct()) {
+            var ti = t._GetInfo();
+            if (ti._isSimpleType.HasValue) return ti._isSimpleType.Value;
+            var fs = t._GetExtractFields();
+            foreach (var f in fs) {
+                if (!CheckIsSimpleType(f.FieldType)) {
+                    ti._isSimpleType = false;
+                    return false;
+                }
+            }
+            ti._isSimpleType = true;
+            return true;
+        }
+        if (t._IsWeak() || t._IsShared()) return false; // todo: 以后再进一步检查是否存在递归可能，如果不可能则似乎也能走简化读写
+        throw new Exception("not impl?");
+    }
+
+    // 检查 type 是否为 “简单类型” ( 只含有 数值,枚举,string 或套List 的类型 )
+    public void SetIsSimpleType() {
+        if (this._isSimpleType.HasValue) return;
+        this._isSimpleType = CheckIsSimpleType(this.type);
+    }
+}
+
 public static class GenCpp {
+    public static bool? _IsSimpleType(this Type t) {
+        return t._GetInfo()?._isSimpleType;
+    }
+
     // 简化传参
     static Cfg cfg;
     static List<string> createEmptyFiles = new List<string>();
@@ -18,8 +57,9 @@ public static class GenCpp {
     public static void Gen() {
         cfg = TypeHelpers.cfg;
         createEmptyFiles.Clear();
-        cfg.types._SortByInheritRelation();
-        cfg.classsStructs._SortByInheritRelation();
+        foreach (var c in cfg.typeInfos) {
+            c.Value.SetIsSimpleType();
+        }
 
         Gen_h();
         Gen_cpp();
@@ -29,273 +69,297 @@ public static class GenCpp {
 
     public static void Gen_h() {
         var sb = new StringBuilder();
+        sb.Append(@"#pragma once");
+
+        // 包含依赖
+        if (cfg.refsCfgs.Count == 0) {
+            sb.Append(@"
+#include ""xx_obj.h""");
+        }
+        foreach (var c in cfg.refsCfgs) {
+            sb.Append(@"
+#include """ + c.name + @".h""");
+        }
+
+        // 前置切片
+        createEmptyFiles.Add(cfg.name + ".h.inc");
+        sb.Append(@"
+#include """ + cfg.name + @".h.inc""");
 
         // 校验和注册
+        sb.Append(@"
+struct CodeGen_" + cfg.name + @" {
+	inline static const ::std::string md5 = """ + StringHelpers.MD5PlaceHolder + @""";
+    static void Register();
+    CodeGen_" + cfg.name + @"() { Register(); }
+};
+inline CodeGen_" + cfg.name + @" __CodeGen_" + cfg.name + @";");
 
-        sb.Append(@"#pragma once
-#include ""xx_obj.h""
-#include """ + cfg.name + @".h.inc""
-namespace " + cfg.name + @" {
-	struct CodeGenMd5 {
-		inline static const ::std::string value = """ + StringHelpers.MD5PlaceHolder + @""";
-    };
-	struct CodeGenTypes {
-        static void Register();
-    };
-");
-
-        // 前置切片文件
-
-        createEmptyFiles.Add(cfg.name + ".h.inc");
-
-        // 所有 class 的预声明( 
-
-        for (int i = 0; i < cfg.localClasss.Count; ++i) {
-            var c = cfg.localClasss[i];
-            var o = c._GetInstance();
-
-            if (c.Namespace != null && (i == 0 || (i > 0 && cfg.localClasss[i - 1].Namespace != c.Namespace))) // namespace 去重
-            {
+        // 所有 本地 class 的预声明
+        foreach (var c in cfg.localClasss) {
+            var ns = c._GetNamespace_Cpp(false);
+            if (string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-namespace " + c.Namespace.Replace(".", "::") + @" {");
+struct " + c.Name + ";");
             }
+            else sb.Append(@"
+namespace " + c._GetNamespace_Cpp(false) + @" { struct " + c.Name + "; }");
+        }
 
+        // 所有 本地 class 的 TypeId 映射
+        if (cfg.localClasss.Count > 0) {
             sb.Append(@"
-    struct " + c.Name + ";");
-
-            if (c.Namespace != null && ((i < cfg.classs.Count - 1 && cfg.classs[i + 1].Namespace != c.Namespace) || i == cfg.classs.Count - 1)) {
-                sb.Append(@"
-}");
-            }
-        }
-
-        sb.Append(@"
-}
 namespace xx {");
-        foreach (var c in cfg.classs) {
-            if (c._IsStruct()) return;
-            var ctn = c._GetTypeDecl_Cpp();
-            var typeId = c._GetTypeId();
-            if (typeId.HasValue) {
+            foreach (var c in cfg.localClasss) {
                 sb.Append(@"
-    template<> struct TypeId<" + ctn + @"> { static const uint16_t value = " + typeId + @"; };");
+    template<> struct TypeId<" + c._GetTypeDecl_Cpp() + @"> { static const uint16_t value = " + c._GetTypeId() + @"; };");
             }
-        }
-        sb.Append(@"
+            sb.Append(@"
 }
 ");
+        }
 
-        for (int i = 0; i < cfg.enums.Count; ++i) {
-            var e = cfg.enums[i];
-            if (e.Namespace != null && (i == 0 || (i > 0 && cfg.enums[i - 1].Namespace != e.Namespace))) // namespace 去重
-            {
+        // 所有 本地 enums
+        foreach (var e in cfg.localEnums) {
+            var ns = e._GetNamespace_Cpp(false);
+            string ss = "";
+            if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-namespace " + e.Namespace.Replace(".", "::") + @" {");
+namespace " + ns + "{");
+                ss = "    ";
             }
 
             sb.Append(e._GetDesc()._GetComment_Cpp(4) + @"
-    enum class " + e.Name + @" : " + e._GetEnumUnderlyingTypeName_Cpp() + @" {");
+" + ss + @"    enum class " + e.Name + @" : " + e._GetEnumUnderlyingTypeName_Cpp() + @" {");
 
             var fs = e._GetEnumFields();
             foreach (var f in fs) {
+                sb.Append(f._GetDesc()._GetComment_Cpp(8 - ss.Length) + @"
+" + ss + @"        " + f.Name + " = " + f._GetEnumValue(e) + ",");
+            }
+
+            sb.Append(@"
+" + ss + @"    };");
+
+            if (!string.IsNullOrEmpty(ns)) {
+                sb.Append(@"
+}");
+            }
+        }
+
+        var a = new Action<Type>((c) => {
+            var o = c._GetInstance();
+            var ns = c._GetNamespace_Cpp(false);
+            string ss = "";
+            if (!string.IsNullOrEmpty(ns)) {
+                sb.Append(@"
+namespace " + ns + @" {");
+                ss = "    ";
+            }
+
+            // 头部
+            var bt = c.BaseType;
+            if (c._IsStruct()) {
+                var btn = c._HasBaseType() ? (" : " + bt._GetTypeDecl_Cpp()) : "";
+                sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length) + @"
+" + ss + @"struct " + c.Name + btn + @" {
+" + ss + @"    XX_OBJ_STRUCT_H(" + c.Name + @")");
+            }
+            else {
+                var btn = c._HasBaseType() ? bt._GetTypeDecl_Cpp() : "::xx::ObjBase";
+                sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length) + @"
+" + ss + @"struct " + c.Name + " : " + btn + @" {
+" + ss + @"    XX_OBJ_OBJECT_H(" + c.Name + @", " + btn + @")");
+            }
+
+            // 附加标签
+            if (c._GetInfo().isSimpleType) {
+                sb.Append(@"
+" + ss + @"    using IsSimpleType_v = " + c.Name + ";");
+            }
+
+            // 前置包含
+            if (c._HasInclude()) {
+                var fn = c._GetUnderlineFullname() + ".inc";
+                createEmptyFiles.Add(fn);
+                sb.Append(@"
+#include """ + fn + @"""");
+            }
+
+            // 成员
+            var fs = c._GetFieldsConsts();
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                var ftn = ft._GetTypeDecl_Cpp();
                 sb.Append(f._GetDesc()._GetComment_Cpp(8) + @"
-        " + f.Name + " = " + f._GetEnumValue(e) + ",");
+" + ss + @"    " + (f.IsStatic ? "constexpr " : "") + ftn + " " + f.Name);
+
+                var v = f.GetValue(f.IsStatic ? null : o);
+                var dv = ft._GetDefaultValueDecl_Cpp(v);
+                if (dv != "") {
+                    sb.Append(" = " + dv + ";");
+                }
+                else {
+                    sb.Append(";");
+                }
+            }
+
+            // 后置包含
+            if (c._HasInclude_()) {
+                var fn = c._GetUnderlineFullname() + "_.inc";
+                createEmptyFiles.Add(fn);
+                sb.Append(@"
+#include """ + fn + @"""");
             }
 
             sb.Append(@"
-    };");
+" + ss + @"};");
 
-            if (e.Namespace != null && ((i < cfg.enums.Count - 1 && cfg.enums[i + 1].Namespace != e.Namespace) || i == cfg.enums.Count - 1)) {
+            if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
 }");
             }
+        });
+
+        // 所有本地 structs & class
+        foreach (var c in cfg.localStructs) {
+            a(c);
         }
-
-        for (int i = 0; i < cfg.classs.Count; ++i) {
-            var c = cfg.classs[i];
-            if (!c._IsStruct()) continue;
-            var o = c._GetInstance();
-
-            if (c.Namespace != null && (i == 0 || (i > 0 && cfg.classs[i - 1].Namespace != c.Namespace))) // namespace 去重
-            {
-                sb.Append(@"
-namespace " + c.Namespace.Replace(".", "::") + @" {");
-            }
-
-            sb.GenH_Struct(c, o);
-
-            if (c.Namespace != null && ((i < cfg.classs.Count - 1 && cfg.classs[i + 1].Namespace != c.Namespace) || i == cfg.classs.Count - 1)) {
-                sb.Append(@"
-}");
-            }
+        foreach (var c in cfg.localClasss) {
+            a(c);
         }
-
-
-        for (int i = 0; i < cfg.classs.Count; ++i) {
-            var c = cfg.classs[i];
-            if (c._IsStruct()) continue;
-            var o = c._GetInstance();
-
-            if (c.Namespace != null && (i == 0 || (i > 0 && cfg.classs[i - 1].Namespace != c.Namespace))) // namespace 去重
-            {
-                sb.Append(@"
-namespace " + c.Namespace.Replace(".", "::") + @" {");
-            }
-
-            sb.GenH_Struct(c, o);
-
-            if (c.Namespace != null && ((i < cfg.classs.Count - 1 && cfg.classs[i + 1].Namespace != c.Namespace) || i == cfg.classs.Count - 1)) {
-                sb.Append(@"
-}");
-            }
-        }
-
-
-        sb.Append(@"
-}
+        if (cfg.localStructs.Count > 0) {
+            sb.Append(@"
 namespace xx {");
-        foreach (var c in cfg.classs) {
-            if (!c._IsStruct()) continue;
-            var ctn = c._GetTypeDecl_Cpp();
+            foreach (var c in cfg.localStructs) {
+                sb.Append(@"
+	XX_OBJ_STRUCT_TEMPLATE_H(" + c._GetTypeDecl_Cpp() + @")");
+            }
             sb.Append(@"
-	XX_GENCODE_STRUCT_TEMPLATE_H(" + ctn + @")");
-        }
-        sb.Append(@"
 }");
+        }
 
-        sb.Append(@"
-#include """ + cfg.name + @"_class_lite_.h.inc""  // user create it for extend include files at the end
+        // 后置切片
+        {
+            var fn = cfg.name + "_.h.inc";
+            createEmptyFiles.Add(fn);
+            sb.Append(@"
+#include """ + fn + @"""
 ");
-        createEmptyFiles.Add(cfg.name + "_class_lite_.h.inc");
-
+        }
 
         sb._WriteToFile(Path.Combine(cfg.outdir_cpp, cfg.name + ".h"));
     }
 
-    static void GenH_Struct(this StringBuilder sb, Type c, object o) {
-        // 定位到基类
-        var bt = c.BaseType;
-
-
-        if (c._IsStruct()) {
-            var btn = c._HasBaseType() ? (" : " + bt._GetTypeDecl_Cpp()) : "";
-            sb.Append(c._GetDesc()._GetComment_Cpp(4) + @"
-    struct " + c.Name + btn + @" {
-        XX_GENCODE_STRUCT_H(" + c.Name + @")");
-        }
-        else {
-            var btn = c._HasBaseType() ? bt._GetTypeDecl_Cpp() : "::xx::ObjBase";
-            sb.Append(c._GetDesc()._GetComment_Cpp(4) + @"
-    struct " + c.Name + " : " + btn + @" {
-        XX_GENCODE_OBJECT_H(" + c.Name + @", " + btn + @")");
-        }
-
-
-        if (c._Has<TemplateLibrary.Include>()) {
-            sb.Append(@"
-#include """ + c._GetTypeDecl_Lua() + @".inc""");
-            createEmptyFiles.Add(c._GetTypeDecl_Lua() + ".inc");
-        }
-
-        var fs = c._GetFieldsConsts();
-        foreach (var f in fs) {
-            var ft = f.FieldType;
-            var ftn = ft._GetTypeDecl_Cpp();
-            sb.Append(f._GetDesc()._GetComment_Cpp(8) + @"
-        " + (f.IsStatic ? "constexpr " : "") + ftn + " " + f.Name);
-
-            var v = f.GetValue(f.IsStatic ? null : o);
-            var dv = ft._GetDefaultValueDecl_Cpp(v);
-            if (dv != "") {
-                sb.Append(" = " + dv + ";");
-            }
-            else {
-                sb.Append(";");
-            }
-        }
-
-        if (c._Has<TemplateLibrary.Include_>()) {
-            sb.Append(@"
-#include """ + c._GetTypeDecl_Lua() + @"_.inc""");
-            createEmptyFiles.Add(c._GetTypeDecl_Lua() + ".inc");
-        }
-
-        sb.Append(@"
-    };");
-    }
-
     public static void Gen_cpp() {
         var sb = new StringBuilder();
-        sb.Append("#include \"" + cfg.name + @".h""
-#include """ + cfg.name + @".cpp.inc""");
-        createEmptyFiles.Add(cfg.name + ".cpp.inc");
+        // 前置包含
+        {
+            var fn = cfg.name + ".cpp.inc";
+            sb.Append("#include \"" + cfg.name + @".h""
+#include """ + fn + @"""");
+            createEmptyFiles.Add(fn);
+        }
 
+        // type id 注册
         sb.Append(@"
-namespace " + cfg.name + @" {
-	void CodeGenTypes::Register() {");
-        foreach (var kv in cfg.typeIdClassMappings) {
-            var ctn = kv.Value._GetTypeDecl_Cpp();
+void CodeGen_" + cfg.name + @"::Register() {");
+        foreach (var c in cfg.localClasss) {
             sb.Append(@"
-	    ::xx::ObjManager::Register<" + ctn + @">();");
+	::xx::ObjManager::Register<" + c._GetTypeDecl_Cpp() + @">();");
         }
         sb.Append(@"
-	}
-}
-");
+}");
 
-        sb.Append(@"
+        // 模板适配
+        if (cfg.localStructs.Count > 0) {
+            sb.Append(@"
 namespace xx {");
-        foreach (var c in cfg.classs) {
-            if (!c._IsStruct()) continue;
+        }
+        foreach (var c in cfg.localStructs) {
             var o = c._GetInstance();
 
             var ctn = c._GetTypeDecl_Cpp();
             var fs = c._GetFields();
+
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, " + ctn + @" const& in) {");
+	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Write(om, in);");
+        ObjFuncs<" + btn + ">::Write(om, d, in);");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-        auto bak = om.data->WriteJump(sizeof(uint32_t));");
+        auto bak = d.WriteJump(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        om.Write(in." + f.Name + ");");
+        om.Write(d, in." + f.Name + ");");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-        om.data->WriteFixedAt(bak, (uint32_t)(om.data->len - bak));");
+        d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
     }");
 
             sb.Append(@"
-	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, " + ctn + @"& out) {");
+	void ObjFuncs<" + ctn + @", void>::WriteFast(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
+
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                var btn = bt._GetTypeDecl_Cpp();
+                sb.Append(@"
+        ObjFuncs<" + btn + ">::Write<false>(om, d, in);");
+            }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+        auto bak = d.WriteJump<false>(sizeof(uint32_t));");
+            }
+
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+        om.Write<false>(d, in." + f.Name + ");");
+            }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+        d.WriteFixedAt<false>(bak, (uint32_t)(d.len - bak));");
+            }
+
+            sb.Append(@"
+    }");
+
+
+            sb.Append(@"
+	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, ::xx::Data_r& d, " + ctn + @"& out) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
 
                 sb.Append(@"
-        if (int r = ObjFuncs<" + btn + ">::Read(om, out)) return r;");
+        if (int r = ObjFuncs<" + btn + ">::Read(om, d, out)) return r;");
             }
 
             if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
         uint32_t siz;
-        if (int r = om.data->ReadFixed(siz)) return r;
-        auto endOffset = om.data->offset + siz;
+        if (int r = d.ReadFixed(siz)) return r;
+        if (siz < sizeof(siz)) return __LINE__;
+        siz -= sizeof(siz);
+        if (siz > d.len - d.offset) return __LINE__;
+        xx::Data_r dr(d.buf + d.offset, siz);
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -311,14 +375,19 @@ namespace xx {");
                     }
 
                     sb.Append(@"
-        if (om.data->offset >= endOffset) " + dv + @";
-        else if (int r = om.Read(out." + f.Name + @")) return r;");
+        if (dr.offset == siz) " + dv + @";
+        else if (int r = om.Read(dr, out." + f.Name + @")) return r;");
                 }
+
+                sb.Append(@"
+
+        d.offset += siz;");
+
             }
             else {
                 foreach (var f in fs) {
                     sb.Append(@"
-        if (int r = om.Read(out." + f.Name + @")) return r;");
+        if (int r = om.Read(d, out." + f.Name + @")) return r;");
                 }
             }
 
@@ -327,18 +396,21 @@ namespace xx {");
     }");
 
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::Append(ObjManager &om, " + ctn + @" const& in) {
-        om.str->push_back('{');
-        AppendCore(om, in);
-        om.str->push_back('}');
+	void ObjFuncs<" + ctn + @", void>::Append(ObjManager &om, std::string& s, " + ctn + @" const& in) {
+#ifndef XX_DISABLE_APPEND
+        s.push_back('{');
+        AppendCore(om, s, in);
+        s.push_back('}');
+#endif
     }
-	void ObjFuncs<" + ctn + @", void>::AppendCore(ObjManager &om, " + ctn + @" const& in) {");
+	void ObjFuncs<" + ctn + @", void>::AppendCore(ObjManager &om, std::string& s, " + ctn + @" const& in) {
+#ifndef XX_DISABLE_APPEND");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        auto sizeBak = om.str->size();
-        ObjFuncs<" + btn + ">::AppendCore(om, in);");
+        auto sizeBak = s.size();
+        ObjFuncs<" + btn + ">::AppendCore(om, s, in);");
             }
 
             foreach (var f in fs) {
@@ -346,49 +418,34 @@ namespace xx {");
                 if (f == fs[0]) {
                     if (c._HasBaseType()) {
                         sb.Append(@"
-        if (sizeBak < om.str->size()) {
-            om.str->push_back(',');
+        if (sizeBak < s.size()) {
+            s.push_back(',');
         }");
                     }
                     sb.Append(@"
-        om.Append(""\""" + f.Name + @"\"":"", in." + f.Name + @"); ");
+        om.Append(s, ""\""" + f.Name + @"\"":"", in." + f.Name + @"); ");
                 }
                 else {
                     sb.Append(@"
-        om.Append("",\""" + f.Name + @"\"":"", in." + f.Name + @");");
+        om.Append(s, "",\""" + f.Name + @"\"":"", in." + f.Name + @");");
                 }
             }
             sb.Append(@"
+#endif
     }");
 
             sb.Append(@"
-    void ObjFuncs<" + ctn + @">::Clone1(::xx::ObjManager& om, " + ctn + @" const& in, " + ctn + @" &out) {");
+    void ObjFuncs<" + ctn + @">::Clone(::xx::ObjManager& om, " + ctn + @" const& in, " + ctn + @" &out) {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Clone1(om, in, out);");
+        ObjFuncs<" + btn + ">::Clone_(om, in, out);");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        om.Clone1(in." + f.Name + ", out." + f.Name + ");");
-            }
-            sb.Append(@"
-    }");
-
-            sb.Append(@"
-    void ObjFuncs<" + ctn + @">::Clone2(::xx::ObjManager& om, " + ctn + @" const& in, " + ctn + @" &out) {");
-            if (c._HasBaseType()) {
-                var bt = c.BaseType;
-                var btn = bt._GetTypeDecl_Cpp();
-                sb.Append(@"
-        ObjFuncs<" + btn + ">::Clone2(om, in, out);");
-            }
-            foreach (var f in fs) {
-                var ft = f.FieldType;
-                sb.Append(@"
-        om.Clone2(in." + f.Name + ", out." + f.Name + ");");
+        om.Clone_(in." + f.Name + ", out." + f.Name + ");");
             }
             sb.Append(@"
     }");
@@ -452,227 +509,70 @@ namespace xx {");
             }
             sb.Append(@"
     }");
-
-
         }
-        sb.Append(@"
+        if (cfg.localStructs.Count > 0) {
+            sb.Append(@"
 }");
+        }
 
-        sb.Append(@"
-namespace " + cfg.name + @" {");
-
-        for (int i = 0; i < cfg.classs.Count; ++i) {
-            var c = cfg.classs[i];
-
-            // namespace c_ns {
-            if (c.Namespace != null && (i == 0 || (i > 0 && cfg.classs[i - 1].Namespace != c.Namespace))) // namespace 去重
-            {
+        // class 成员函数
+        foreach (var c in cfg.localClasss) {
+            var ns = c._GetNamespace_Cpp(false);
+            string ss = "";
+            if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-namespace " + c.Namespace.Replace(".", "::") + @" {");
+namespace " + ns + "{");
+                ss = "    ";
             }
 
             var o = c._GetInstance();
+            var fs = c._GetFields();
 
             sb.Append(@"
-    " + c.Name + @"::" + c.Name + @"(" + c.Name + @"&& o) noexcept {
-        this->operator=(std::move(o));
-    }
-    " + c.Name + @"& " + c.Name + @"::operator=(" + c.Name + @"&& o) noexcept {");
+" + ss + @"void " + c.Name + @"::Write(::xx::ObjManager& om, ::xx::Data& d) const {");
+
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
-                var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        this->" + (c._IsStruct() ? btn : "BaseType") + "::operator=(std::move(o));");
+" + ss + @"    this->BaseType::Write(om, d);");
             }
-            var fs = c._GetFields();
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+" + ss + @"    auto bak = d.WriteJump(sizeof(uint32_t));");
+            }
+
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        std::swap(this->" + f.Name + ", o." + f.Name + ");");
+" + ss + @"    om.Write(d, this->" + f.Name + ");");
             }
+
+            if (c._Has<TemplateLibrary.Compatible>()) {
+                sb.Append(@"
+" + ss + @"    d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
+            }
+
             sb.Append(@"
-        return *this;
-    }");
+" + ss + @"}");
 
-            if (c._IsClass()) {
+            sb.Append(@"
+" + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om, ::xx::Data_r& d) {");
 
+            if (c._HasBaseType()) {
                 sb.Append(@"
-    void " + c.Name + @"::Write(::xx::ObjManager& om) const {");
+" + ss + @"    if (int r = this->BaseType::Read(om, d)) return r;");
+            }
 
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-        this->BaseType::Write(om);");
-                }
-
-                if (c._Has<TemplateLibrary.Compatible>()) {
-                    sb.Append(@"
-        auto bak = om.data->WriteJump(sizeof(uint32_t));");
-                }
-
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-        om.Write(this->" + f.Name + ");");
-                }
-
-                if (c._Has<TemplateLibrary.Compatible>()) {
-                    sb.Append(@"
-        om.data->WriteFixedAt(bak, (uint32_t)(om.data->len - bak));");
-                }
-
+            if (c._Has<TemplateLibrary.Compatible>()) {
                 sb.Append(@"
-    }");
-
-                sb.Append(@"
-    int " + c.Name + @"::Read(::xx::ObjManager& om) {");
-
-                if (c._HasBaseType()) {
-                    sb.Append(@"
-        if (int r = this->BaseType::Read(om)) return r;");
-                }
-
-                if (c._Has<TemplateLibrary.Compatible>()) {
-                    sb.Append(@"
-        uint32_t siz;
-        if (int r = om.data->ReadFixed(siz)) return r;
-        auto endOffset = om.data->offset - sizeof(siz) + siz;
+" + ss + @"    uint32_t siz;
+" + ss + @"    if (int r = d.ReadFixed(siz)) return r;
+" + ss + @"    if (siz < sizeof(siz)) return __LINE__;
+" + ss + @"    siz -= sizeof(siz);
+" + ss + @"    if (siz > d.len - d.offset) return __LINE__;
+" + ss + @"    xx::Data_r dr(d.buf + d.offset, siz);
 ");
-                    foreach (var f in fs) {
-                        var ft = f.FieldType;
-
-                        string dv = "";
-                        var v = f.GetValue(f.IsStatic ? null : o);
-                        dv = ft._GetDefaultValueDecl_Cpp(v);
-                        if (dv != "") {
-                            dv = "this->" + f.Name + " = " + dv;
-                        }
-                        else {
-                            dv = "om.SetDefaultValue(this->" + f.Name + ")";
-                        }
-
-                        sb.Append(@"
-        if (om.data->offset >= endOffset) " + dv + @";
-        else if (int r = om.Read(this->" + f.Name + @")) return r;");
-                    }
-
-                    sb.Append(@"
-
-        if (om.data->offset > endOffset) return __LINE__;
-        else om.data->offset = endOffset;");
-                }
-                else {
-                    foreach (var f in fs) {
-                        sb.Append(@"
-        if (int r = om.Read(this->" + f.Name + @")) return r;");
-                    }
-                }
-
-                sb.Append(@"
-        return 0;
-    }");
-                var ctn = c._GetTypeDecl_Cpp();
-                sb.Append(@"
-    void " + c.Name + @"::Append(::xx::ObjManager& om) const {
-        om.Append(""{\""__typeId__\"":"", this->ObjBase::GetTypeId());");
-                sb.Append(@"
-		this->AppendCore(om);
-		om.str->push_back('}');
-    }
-    void " + c.Name + @"::AppendCore(::xx::ObjManager& om) const {");
-
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-        this->BaseType::AppendCore(om);");
-                }
-
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-        om.Append("",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
-                }
-                sb.Append(@"
-    }");
-
-                sb.Append(@"
-    void " + c.Name + @"::Clone1(::xx::ObjManager& om, void* const &tar) const {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-        this->BaseType::Clone1(om, tar);");
-                }
-                if (fs.Count > 0) {
-                    sb.Append(@"
-        auto out = (" + c._GetTypeDecl_Cpp() + @"*)tar;");
-                }
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-        om.Clone1(this->" + f.Name + ", out->" + f.Name + ");");
-                }
-                sb.Append(@"
-    }");
-                sb.Append(@"
-    void " + c.Name + @"::Clone2(::xx::ObjManager& om, void* const &tar) const {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-        this->BaseType::Clone2(om, tar);");
-                }
-                if (fs.Count > 0) {
-                    sb.Append(@"
-        auto out = (" + c._GetTypeDecl_Cpp() + @"*)tar;");
-                }
-
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-        om.Clone2(this->" + f.Name + ", out->" + f.Name + ");");
-                }
-                sb.Append(@"
-    }");
-
-                sb.Append(@"
-    int " + c.Name + @"::RecursiveCheck(::xx::ObjManager& om) const {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-        if (int r = this->BaseType::RecursiveCheck(om)) return r;");
-                }
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    // todo: 跳过不含有 Shared 的类型的生成
-                    sb.Append(@"
-        if (int r = om.RecursiveCheck(this->" + f.Name + ")) return r;");
-                }
-                sb.Append(@"
-        return 0;
-    }");
-
-                sb.Append(@"
-    void " + c.Name + @"::RecursiveReset(::xx::ObjManager& om) {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-        this->BaseType::RecursiveReset(om);");
-                }
-                foreach (var f in fs) {
-                    var ft = f.FieldType;
-                    sb.Append(@"
-        om.RecursiveReset(this->" + f.Name + ");");
-                }
-                sb.Append(@"
-    }");
-
-
-                sb.Append(@"
-    void " + c.Name + @"::SetDefaultValue(::xx::ObjManager& om) {");
-                if (c._HasBaseType()) {
-                    var bt = c.BaseType;
-                    sb.Append(@"
-        this->BaseType::SetDefaultValue(om);");
-                }
                 foreach (var f in fs) {
                     var ft = f.FieldType;
 
@@ -687,27 +587,138 @@ namespace " + c.Namespace.Replace(".", "::") + @" {");
                     }
 
                     sb.Append(@"
-        " + dv + @";");
+" + ss + @"    if (dr.offset == siz) " + dv + @";
+" + ss + @"    else if (int r = om.Read(dr, this->" + f.Name + @")) return r;");
                 }
+
                 sb.Append(@"
-    }");
 
-
+" + ss + @"    d.offset += siz;");
+            }
+            else {
+                foreach (var f in fs) {
+                    sb.Append(@"
+" + ss + @"    if (int r = om.Read(d, this->" + f.Name + @")) return r;");
+                }
             }
 
+            sb.Append(@"
+" + ss + @"    return 0;
+" + ss + @"}");
+            sb.Append(@"
+" + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om, std::string& s) const {
+#ifndef XX_DISABLE_APPEND
+" + ss + @"    ::xx::Append(s, ""{\""__typeId__\"":" + c._GetTypeId() + @""");");
+            sb.Append(@"
+" + ss + @"    this->AppendCore(om, s);
+" + ss + @"    s.push_back('}');
+#endif
+" + ss + @"}
+" + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om, std::string& s) const {
+#ifndef XX_DISABLE_APPEND");
+
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    this->BaseType::AppendCore(om, s);");
+            }
+
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+" + ss + @"    om.Append(s, "",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
+            }
+            sb.Append(@"
+#endif
+" + ss + @"}");
+
+            sb.Append(@"
+" + ss + @"void " + c.Name + @"::Clone(::xx::ObjManager& om, void* const &tar) const {");
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    this->BaseType::Clone(om, tar);");
+            }
+            if (fs.Count > 0) {
+                sb.Append(@"
+" + ss + @"    auto out = (" + c._GetTypeDecl_Cpp() + @"*)tar;");
+            }
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+" + ss + @"    om.Clone_(this->" + f.Name + ", out->" + f.Name + ");");
+            }
+            sb.Append(@"
+" + ss + @"}");
+
+            sb.Append(@"
+" + ss + @"int " + c.Name + @"::RecursiveCheck(::xx::ObjManager& om) const {");
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    if (int r = this->BaseType::RecursiveCheck(om)) return r;");
+            }
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                // todo: 跳过不含有 Shared 的类型的生成
+                sb.Append(@"
+" + ss + @"    if (int r = om.RecursiveCheck(this->" + f.Name + ")) return r;");
+            }
+            sb.Append(@"
+" + ss + @"    return 0;
+" + ss + @"}");
+
+            sb.Append(@"
+" + ss + @"void " + c.Name + @"::RecursiveReset(::xx::ObjManager& om) {");
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    this->BaseType::RecursiveReset(om);");
+            }
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+                sb.Append(@"
+" + ss + @"    om.RecursiveReset(this->" + f.Name + ");");
+            }
+            sb.Append(@"
+" + ss + @"}");
+
+
+            sb.Append(@"
+" + ss + @"void " + c.Name + @"::SetDefaultValue(::xx::ObjManager& om) {");
+            if (c._HasBaseType()) {
+                var bt = c.BaseType;
+                sb.Append(@"
+" + ss + @"    this->BaseType::SetDefaultValue(om);");
+            }
+            foreach (var f in fs) {
+                var ft = f.FieldType;
+
+                string dv = "";
+                var v = f.GetValue(f.IsStatic ? null : o);
+                dv = ft._GetDefaultValueDecl_Cpp(v);
+                if (dv != "") {
+                    dv = "this->" + f.Name + " = " + dv;
+                }
+                else {
+                    dv = "om.SetDefaultValue(this->" + f.Name + ")";
+                }
+
+                sb.Append(@"
+" + ss + @"    " + dv + @";");
+            }
+            sb.Append(@"
+" + ss + @"}");
+
             // namespace }
-            if (c.Namespace != null && ((i < cfg.classs.Count - 1 && cfg.classs[i + 1].Namespace != c.Namespace) || i == cfg.classs.Count - 1)) {
+            if (ss != "") {
                 sb.Append(@"
 }");
             }
         }
-
         sb.Append(@"
-}
-");    // namespace _templateName
-
+");
         sb._WriteToFile(Path.Combine(cfg.outdir_cpp, cfg.name + ".cpp"));
-
     }
 
     static void GenH_AJSON(this StringBuilder sb, Type c) {
@@ -725,10 +736,10 @@ namespace " + c.Namespace.Replace(".", "::") + @" {");
         sb.Append(@"#pragma once
 #include """ + cfg.name + @".h""
 #include ""ajson.hpp""");
-        foreach (var c in cfg.localClasssStructs) {
+        foreach (var c in cfg.localStructs) {
             if (c._HasClassMember()) continue;
             sb.Append(@"
-AJSON(" + "::" + c.Name);
+AJSON(" + "::" + c._GetTypeDecl_Cpp());
             GenH_AJSON(sb, c);
             sb.Append(");");
         }

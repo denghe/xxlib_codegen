@@ -1,10 +1,16 @@
 ﻿// 全是 Attribute
-namespace TemplateLibrary {
 
-    // 语言定位：C++ 通信 + 建模( 支持递归强弱引用 ), C# Lua 仅通信( 只支持基础结构体组合 & 继承 )
+// 语言定位：C++ 通信 + 建模( 支持递归强弱引用 ), C# Lua 仅通信( 只支持基础结构体组合 & 继承 )
+
+namespace TemplateLibrary {
+    /****************************************************************************************/
+    // 数据类型
+
+    // 使用 byte[] 来指代 xx.Data
+    // C++ 生成时，使用 object 来指代 xx::ObjBase
 
     /// <summary>
-    /// 对应 c++ std::optional, c# Nullable<>, lua variable
+    /// 对应 c++ std::optional, c# Nullable<>, lua variable,Rust Option<T>
     /// 考虑到 c# string & class & lua table 默认语言级别可空，和 c++ 默认值类型冲突
     /// 如果 不加 Nullable, 则 c# lua 不可传空( 发送时检查 ), C++ 就是直接的值类型
     /// 如果 加了 Nullable, 则 c# lua 可传空( 发送时不检查 ), C++ 包裹 std::optional
@@ -12,27 +18,47 @@ namespace TemplateLibrary {
     public class Nullable<T> { }
 
     /// <summary>
-    /// 对应 c++ std::vector, c# List, lua table
+    /// 对应 c++ std::vector, c# List, lua table,Rust Vec<T>
     /// 如果不套 Nullable, 则 C# lua 不可传空( 发送时检查 )
     /// </summary>
     public class List<T> { }
 
     /// <summary>
-    /// 对应 c++ std::weak_ptr, c# ???, lua ???
+    /// 对应 c++ std::queue, 其他语言再说
+    /// </summary>
+    public class Queue<T> { }
+
+    /// <summary>
+    /// 对应 c++ std::deque, 其他语言再说
+    /// </summary>
+    public class Deque<T> { }
+
+    /// <summary>
+    /// 对应 c++ std::weak_ptr, c# ???, lua ??? ,rust Weak
     /// 暂时不支持 c#, lua, 生成 c# lua 时如果检测到，就直接报错
     /// </summary>
     public class Weak<T> { }
 
     /// <summary>
-    /// 对应 c++ std::shared_ptr, c# Shared/Property, lua ???
+    /// 对应 c++ std::shared_ptr, c# Shared/Property, lua ???,rust Shardptr
     /// 暂时不支持 c#, lua, 生成 c# lua 时如果检测到，就直接报错
     /// </summary>
     public class Shared<T> { }
 
     /// <summary>
-    /// 对应 c++ std::map, c# Dict[ionary]( 无法保证原始顺序 ). lua table( 无法保证原始顺序 )
+    /// 对应 c++ std::map, c# 暂时不支持,再说. lua table( 无法保证原始顺序 ) rust btreemap
     /// </summary>
     public class Dict<K, V> { }
+
+    /// <summary>
+    /// 对应 c++ std::unordered_map, c# 暂时不支持,再说. lua table( 无法保证原始顺序 ). rust hashmap
+    /// </summary>
+    public class HashMap<K, V> { }
+
+    /// <summary>
+    /// 对应 c++  暂时不支持,再说, c# 暂时不支持,再说. lua  暂时不支持,再说. rust HashSet
+    /// </summary>
+    public class HashSet<K> { }
 
     /// <summary>
     /// 对应 c++ std::pair, c# 模拟. lua table 模拟
@@ -50,6 +76,15 @@ namespace TemplateLibrary {
     public class Tuple<T1, T2, T3, T4, T5, T6> { }
     public class Tuple<T1, T2, T3, T4, T5, T6, T7> { }
 
+
+    /****************************************************************************************/
+    // 标记
+
+    /// <summary>
+    /// 标记一个 class 生成时走 struct 规则( 值类型继承 ), 以突破 c# 写模板的限制
+    /// </summary>
+    [System.AttributeUsage(System.AttributeTargets.Class)]
+    public class Struct : System.Attribute { }
 
     /// <summary>
     /// 用来做类型到 typeId 的固定映射生成
@@ -85,8 +120,6 @@ namespace TemplateLibrary {
     public class External : System.Attribute {
     }
 
-
-
     /// <summary>
     /// C++ only
     /// 标记一个类需要抠洞在声明部分嵌入 模板名_类名.inc ( 在成员前面 )
@@ -104,17 +137,17 @@ namespace TemplateLibrary {
     }
 
 
+    /// <summary>
+    /// Lua only
+    /// 标记一个类成员 数据类型为 long / ulong ( 可空，数组啥的不支持 ) 的，映射到 lua 中为 double 
+    /// </summary>
+    [System.AttributeUsage(System.AttributeTargets.Field)]
+    public class LuaDouble : System.Attribute {
+    }
+
 
     /****************************************************************************************/
-    // 下面的东西用不用看心情
-
-    /// <summary>
-    /// C# only
-    /// 标记一个 class 生成时走 struct 规则( 值类型继承 ), 以突破 c# 写模板的限制
-    /// </summary>
-    [System.AttributeUsage(System.AttributeTargets.Class)]
-    public class Struct : System.Attribute { }
-
+    // 次要标记
 
     /// <summary>
     /// 针对最外层级的 List, Data, string 做最大长度保护限制

@@ -31,24 +31,17 @@ public static partial class TypeHelpers {
     }
 
     /// <summary>
-    /// 返回 t 是否为 Weak
-    /// </summary>
-    public static bool _IsWeak(this Type t) {
-        return t.Namespace == nameof(TemplateLibrary) && t.Name == "Weak`1";
-    }
-
-    /// <summary>
-    /// 返回 t 是否为 Weak
-    /// </summary>
-    public static bool _IsUnique(this Type t) {
-        return t.Namespace == nameof(TemplateLibrary) && t.Name == "Unique`1";
-    }
-
-    /// <summary>
     /// 返回 t 是否为 Shared
     /// </summary>
     public static bool _IsShared(this Type t) {
         return t.Namespace == nameof(TemplateLibrary) && t.Name == "Shared`1";
+    }
+
+    /// <summary>
+    /// 返回 t 是否为 Weak
+    /// </summary>
+    public static bool _IsWeak(this Type t) {
+        return t.Namespace == nameof(TemplateLibrary) && t.Name == "Weak`1";
     }
 
     /// <summary>
@@ -66,13 +59,6 @@ public static partial class TypeHelpers {
             t = t._GetChildType();
         }
         return t._IsString() || t._IsList() || t._IsData();
-    }
-
-    /// <summary>
-    /// 返回泛型第 index 个子类型
-    /// </summary>
-    public static Type _GetChildType(this Type t, int index = 0) {
-        return t.GenericTypeArguments[index];
     }
 
     /// <summary>
@@ -104,7 +90,7 @@ public static partial class TypeHelpers {
     }
 
     /// <summary>
-    /// 返回 t 是否为 数字类型( byte ~ int64, float, double )
+    /// 返回 t 是否为 数字类型( byte ~ int64, float, double, bool )
     /// </summary>
     public static bool _IsNumeric(this Type t) {
         return t.Namespace == nameof(System) && t.IsValueType && (
@@ -125,12 +111,36 @@ public static partial class TypeHelpers {
             );
     }
 
+    public static bool _IsNullableNumber(this Type t)    
+     => t._IsNullable() && t.GenericTypeArguments[0]._IsNumeric();
+
+    /// <summary>
+    /// 返回 t 是否为 [u]int64
+    /// </summary>
+    public static bool _IsIntUint64(this Type t){
+        return t.Namespace == nameof(System) && t.IsValueType && (
+                t.Name == "UInt64" ||
+                t.Name == "Int64"
+            );
+    }
+
+    /// <summary>
+    /// 返回 t 是否为 bool 类型
+    /// </summary>
+    public static bool _IsBoolean(this Type t) {
+        return t.Namespace == nameof(System) && t.IsValueType && (
+                t.Name == "Boolean" ||
+                t.Name == "Bool"
+            );
+    }
+
     /// <summary>
     /// 返回 t 是否为 C# 中的 Nullable<>
     /// </summary>
     public static bool _IsNullable(this Type t) {
         return t.IsGenericType && (t.Namespace == nameof(System) || t.Namespace == nameof(TemplateLibrary)) && t.Name == "Nullable`1";
     }
+
 
     /// <summary>
     /// 返回 t 是否为 Tuple<........>
@@ -172,6 +182,16 @@ public static partial class TypeHelpers {
         var cas = f.GetCustomAttributes(false).ToList();
         return cas.Any(a => a is T);
     }
+    public static bool _HasInclude(this ICustomAttributeProvider f) {
+        return _Has<TemplateLibrary.Include>(f);
+    }
+    public static bool _HasInclude_(this ICustomAttributeProvider f) {
+        return _Has<TemplateLibrary.Include_>(f);
+    }
+    public static bool _HasCompatible(this ICustomAttributeProvider f) {
+        return _Has<TemplateLibrary.Compatible>(f);
+    }
+    // todo: more has for easy use
 
     /// <summary>
     /// 递归判断 是否有任意成员变量类型是 class ( 含泛型 )
@@ -221,10 +241,41 @@ public static partial class TypeHelpers {
     }
 
     /// <summary>
+    /// 获取类型附加信息
+    /// </summary>
+    public static Info _GetInfo(this Type t) {
+        if (!cfg.typeInfos.ContainsKey(t)) return null;
+        return cfg.typeInfos[t];
+    }
+
+    /// <summary>
+    /// 返回泛型第 index 个子类型
+    /// </summary>
+    public static Type _GetChildType(this Type t, int index = 0) {
+        return t.GenericTypeArguments[index];
+    }
+
+    /// <summary>
     /// 创建指定类型的实例( 通常为方便获取默认值 )
     /// </summary>
     public static object _GetInstance(this Type t) {
         return cfg.asm.CreateInstance(t.FullName);
+    }
+
+    /// <summary>
+    /// 获取 class 的 基类 展开 列表( 含自身, 倒序 )
+    /// </summary>
+    public static List<Type> _GetExtracts(this Type t) {
+        var ts = new List<Type>();
+        ts.Add(t);
+        var bt = t.BaseType;
+    LabBegin:
+        if (bt != null && bt != typeof(object) && bt != typeof(System.ValueType)) {
+            ts.Add(bt);
+            bt = bt.BaseType;
+            goto LabBegin;
+        }
+        return ts;
     }
 
     /// <summary>
@@ -271,6 +322,45 @@ public static partial class TypeHelpers {
     public static List<FieldInfo> _GetFields<T>(this Type t) {
         return t.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance).Where(f => f._Has<T>()).ToList();
     }
+
+
+
+    /// <summary>
+    /// 获取 class 的成员列表( 含 const ) -- 基类成员递归展开版
+    /// </summary>
+    public static List<FieldInfo> _GetExtractFieldsConsts(this Type t) {
+        var rtv = new List<FieldInfo>();
+        var ts = t._GetExtracts();
+        for (int i = ts.Count - 1; i >= 0; --i) {
+            rtv.AddRange(ts[i]._GetFieldsConsts());
+        }
+        return rtv;
+    }
+
+    /// <summary>
+    /// 获取 class 的成员列表( 不含 const ) -- 基类成员递归展开版
+    /// </summary>
+    public static List<FieldInfo> _GetExtractFields(this Type t) {
+        var rtv = new List<FieldInfo>();
+        var ts = t._GetExtracts();
+        for (int i = ts.Count - 1; i >= 0; --i) {
+            rtv.AddRange(ts[i]._GetFields());
+        }
+        return rtv;
+    }
+
+    /// <summary>
+    /// 获取 class 的附加有指定 Attribute 的成员列表( 不含 const ) -- 基类成员递归展开版
+    /// </summary>
+    public static List<FieldInfo> _GetExtractFields<T>(this Type t) {
+        var rtv = new List<FieldInfo>();
+        var ts = t._GetExtracts();
+        for (int i = ts.Count - 1; i >= 0; --i) {
+            rtv.AddRange(ts[i]._GetFields<T>());
+        }
+        return rtv;
+    }
+
 
     /// <summary>
     /// 获取类型的成员函数列表
@@ -332,6 +422,12 @@ public static partial class TypeHelpers {
         throw new Exception("unknown Underlying Type");
     }
 
+    /// <summary>
+    /// 获取 下划线连接的 namespace + name
+    /// </summary>
+    public static string _GetUnderlineFullname(this Type t) {
+        return cfg.name + "_" + (t.Namespace == null ? "" : t.Namespace.Replace(".", "_")) + t.Name;
+    }
 
     /**************************************************************************************************/
     // 其他
