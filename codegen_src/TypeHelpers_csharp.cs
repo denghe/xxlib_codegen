@@ -9,6 +9,8 @@ using System.Text;
 
 public static partial class TypeHelpers {
 
+
+
     /// <summary>
     /// 获取 C# 的类型声明串
     /// </summary>
@@ -209,15 +211,18 @@ public static partial class TypeHelpers {
     /// <summary>
     /// 获取 C# 的类型声明串
     /// </summary>
-    public static string _GetTypeDecl_Csharp(this Type t) {
+    public static string _GetTypeDecl_Csharp(this Type t)
+    {
 
         if (t._IsNullableNumber())
-            return t.GenericTypeArguments[0]._GetTypeDecl_Csharp()+"?";
-        
-        if (t._IsNullable()) {
+            return t.GenericTypeArguments[0]._GetTypeDecl_Csharp() + "?";
+
+        if (t._IsNullable())
+        {
             return t.GenericTypeArguments[0]._GetTypeDecl_Csharp();
         }
-        if (t.IsArray) {
+        if (t.IsArray)
+        {
             if (t.FullName == "System.Byte[]")
                 return "byte[]";
             else
@@ -225,66 +230,70 @@ public static partial class TypeHelpers {
 
             //return _GetTypeDecl_Csharp(t.GetElementType()) + "[]";
         }
-        else if (t._IsTuple()) {
+        else if (t._IsTuple())
+        {
             throw new NotSupportedException();
         }
-        else if (t.IsEnum) {
-            throw new NotSupportedException();
-        }
-        else {
-            if (t.Namespace == nameof(TemplateLibrary)) {
-                if (t.Name == "Shared`1")
-                    return t.GenericTypeArguments[0].FullName;
-
-                if (t.Name == "List`1")
-                    return "List<" + _GetTypeDecl_GenTypeIdTemplate(t.GenericTypeArguments[0]) + ">";
-
-                throw new NotSupportedException();
-            }
-            else if (t.Namespace == nameof(System)) {
-                switch (t.Name) {
-                    case "Object":
-                        return "object";
-                    case "Void":
-                        return "void";
-                    case "Byte":
-                        return "byte";
-                    case "UInt8":
-                        return "byte";
-                    case "UInt16":
-                        return "ushort";
-                    case "UInt32":
-                        return "uint";
-                    case "UInt64":
-                        return "ulong";
-                    case "SByte":
-                        return "sbyte";
-                    case "Int8":
-                        return "sbyte";
-                    case "Int16":
-                        return "short";
-                    case "Int32":
-                        return "int";
-                    case "Int64":
-                        return "long";
-                    case "Double":
-                        return "double";
-                    case "Float":
-                        return "float";
-                    case "Single":
-                        return "float";
-                    case "Boolean":
-                        return "bool";
-                    case "Bool":
-                        return "bool";
-                    case "String":
-                        return "string";
-                }
-            }
-
+        else if (t.IsEnum)
+        {
             return t.FullName;
-            //throw new Exception("unhandled data type");
         }
+        else if (t.Namespace == nameof(TemplateLibrary))
+        {
+            if (t.Name == "Shared`1")
+                return t.GenericTypeArguments[0].FullName;
+
+            if (t.Name == "List`1")
+                return "List<" + _GetTypeDecl_GenTypeIdTemplate(t.GenericTypeArguments[0]) + ">";
+
+            throw new NotSupportedException($"NotSupported:{t.Name}");
+        }
+        else if (t.Namespace == nameof(System))
+        {
+            switch (t.Name)
+            {
+                case "Object":
+                    return "object";
+                case "Void":
+                    return "void";
+                case "Byte":
+                    return "byte";
+                case "UInt8":
+                    return "byte";
+                case "UInt16":
+                    return "ushort";
+                case "UInt32":
+                    return "uint";
+                case "UInt64":
+                    return "ulong";
+                case "SByte":
+                    return "sbyte";
+                case "Int8":
+                    return "sbyte";
+                case "Int16":
+                    return "short";
+                case "Int32":
+                    return "int";
+                case "Int64":
+                    return "long";
+                case "Double":
+                    return "double";
+                case "Float":
+                    return "float";
+                case "Single":
+                    return "float";
+                case "Boolean":
+                    return "bool";
+                case "Bool":
+                    return "bool";
+                case "String":
+                    return "string";
+            }
+        }
+
+        return t.FullName;
+        //throw new Exception("unhandled data type");
+
     }
 
 

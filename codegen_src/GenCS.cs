@@ -25,6 +25,11 @@ using System.Collections.Generic;
 
     public static void Gen_Content(this StringBuilder sb) {
 
+        for (int i = 0; i < cfg.localEnums.Count; i++)
+        {
+            GenEnum(sb, i);
+        }
+
         for (int i = 0; i < cfg.localStructs.Count; i++)
         {
             GenStruct(sb, i);
@@ -34,6 +39,7 @@ using System.Collections.Generic;
         {
             GenLocalClass(sb, i);
         }
+
 
 
 
@@ -57,11 +63,53 @@ public static partial class CodeGen_{cfg.name}
 
     }
 
+    private static void GenEnum(StringBuilder sb, int i)
+    {
+        var c = cfg.localEnums[i];
+
+        if (c.Namespace != null && (i == 0 || (i > 0 && cfg.localEnums[i - 1].Namespace != c.Namespace))) // namespace 去重
+        {
+            sb.Append($@"
+namespace { c.Namespace  }
+{{");
+        }
+
+        
+        sb.Append(c._GetDesc()._GetComment_CSharp(4) +
+$@"
+    [Flags]
+    public enum {c.Name} : {c._GetEnumUnderlyingTypeName_Csharp()}
+    {{");
+
+        var fs = c._GetEnumFields();
+        foreach (var f in fs)
+        {
+            sb.Append($@"{f._GetDesc()._GetComment_CSharp(8)}
+        {f.Name} = " + f._GetEnumValue(c) + ",");
+        }
+
+
+        sb.Append(@"
+    }
+");
+
+
+        if (c.Namespace != null && ((i < cfg.localEnums.Count - 1 && cfg.localEnums[i + 1].Namespace != c.Namespace) || i == cfg.localEnums.Count - 1))
+        {
+            sb.Append(@"
+}
+");
+        }
+    }
+
     private static void GenStruct(StringBuilder sb, int i)
     {
         var c = cfg.localStructs[i];
 
         var need_compatible = c._Has<TemplateLibrary.Compatible>();
+
+        if (c._HasBaseType())
+            throw new Exception("struct have base?");
 
         if (c.Namespace != null && (i == 0 || (i > 0 && cfg.localStructs[i - 1].Namespace != c.Namespace))) // namespace 去重
         {
@@ -70,11 +118,12 @@ namespace { c.Namespace  }
 {{");
         }
 
+        
 
 
         sb.Append(c._GetDesc()._GetComment_CSharp(4) +
 $@"
-    public partial class {c.Name}{c.BaseType._GetStructTypeBase_Csharp()}
+    public partial struct {c.Name}
     {{");
 
         var fs = c._GetFieldsConsts();
@@ -99,7 +148,7 @@ $@"
             {
                 sb.Append(p._GetDesc()._GetComment_CSharp(8) +
 $@"
-        public {ptn} {p.Name} {{ get; set; }} = new {ptn}();
+        public {ptn} {p.Name} {{ get; set; }}
 ");
             }
             else if(pt._IsList()&& pt.GetGenericArguments()[0]._IsStruct())
@@ -107,6 +156,13 @@ $@"
                 sb.Append(p._GetDesc()._GetComment_CSharp(8) +
 $@"
         public {ptn} {p.Name} {{ get; set; }} = new {ptn}();
+");
+            }
+            else if (pt._IsNullable() && !pt._IsNullableNumber())
+            {
+                sb.Append(p._GetDesc()._GetComment_CSharp(8) +
+$@"
+        public {ptn}? {p.Name} {{ get; set; }}
 ");
             }
             else
@@ -123,15 +179,11 @@ $@"
 
         #region Read
         sb.Append($@"
-        public {(!c.IsValueType && c._HasBaseType() ? "new " : "")}int Read(xx.ObjManager om, xx.DataReader data)
+        public {(!c.IsValueType && c._HasBaseType() ? "new " : "")}int Read(xx.ObjManager om, xx.DataReader data, out {c.Name} self)
         {{");
 
-        if (!c.IsValueType && c._HasBaseType())
-        {
-            sb.Append($@"
-            base.Read(om, data);
-");
-        }
+        sb.Append($@"
+            self=this;");
 
         if (need_compatible || fs.Count > 0)
         {
@@ -156,8 +208,10 @@ $@"
                 {
                   
                     sb.Append($@"
-            if ((err = this.{f.Name}.Read(om, data)) != 0)
+            if ((err = this.{f.Name}.Read(om, data, out var __{f.Name.ToLower()})) != 0)
                 return err;
+            else
+                self.{f.Name}= __{f.Name.ToLower()};
 ");
                 }
                 else if (f.FieldType._IsNullable() && !f.FieldType._IsNullableNumber())
@@ -167,9 +221,11 @@ $@"
             {{
                 if (have_{f.Name.ToLower()} == 1)
                 {{
-                    this.{f.Name} = new {f.FieldType._GetTypeDecl_Csharp()}();
-                    if ((err = this.{f.Name}.Read(om, data)) != 0)
+                    var __{f.Name} =  new {f.FieldType._GetTypeDecl_Csharp()}();
+                    if ((err = __{f.Name}.Read(om, data, out __{f.Name})) != 0)
                         return err;
+                    else
+                        self.{f.Name}=__{f.Name};
                 }}
             }}
             else return err;
@@ -184,11 +240,23 @@ $@"
                 for (int i = 0; i < {f.Name.ToLower()}_len; i++)
                 {{
                     var p = new {tn}();
-                    if ((err = p.Read(om, data)) == 0)
-                        this.{f.Name}.Add(p);
+                    if ((err = p.Read(om, data, out p)) == 0)
+                        self.{f.Name}.Add(p);
                     else return err;
                 }}
             }}
+            else return err;
+");
+                }
+                else if (f.FieldType._IsShared() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+                {
+                    throw new Exception($"struct not Shared<T> Field :{f.FieldType.FullName}");
+                }
+                else if (f.FieldType.IsEnum)
+                {
+                    sb.Append($@"
+            if ((err = om.ReadFrom(data, out {f.FieldType._GetEnumUnderlyingTypeName_Csharp()} __{f.Name.ToLower()})) == 0)
+                self.{f.Name} = ({f.FieldType._GetEnumUnderlyingTypeName_Csharp()}) __{f.Name.ToLower()};
             else return err;
 ");
                 }
@@ -196,7 +264,7 @@ $@"
                 {
                     sb.Append($@"
             if ((err = om.{(f.FieldType._IsShared() ? "ReadObj" : (f.FieldType._IsListShared() ? "ReadObj" : "ReadFrom"))}(data, out {f.FieldType._GetTypeDecl_Csharp()} __{f.Name.ToLower()})) == 0)
-            this.{f.Name} = __{f.Name.ToLower()};
+                self.{f.Name} = __{f.Name.ToLower()};
             else return err;
 ");
                 }
@@ -207,8 +275,11 @@ $@"
                 if (f.FieldType._IsStruct())
                 {
                     sb.Append($@"
-            if (data.Offset < endoffset && (err =  this.{f.Name}.Read(om, data)) != 0)
+            var __{f.Name.ToLower()}=new {f.FieldType._GetTypeDecl_Csharp()}();
+            if (data.Offset < endoffset && (err =  __{f.Name.ToLower()}.Read(om, data, out __{f.Name.ToLower()})) != 0)
                 return err;
+            else
+                self.{f.Name}=__{f.Name.ToLower()};
 ");
                 }
                 else if (f.FieldType._IsNullable()&&!f.FieldType._IsNullableNumber())
@@ -218,9 +289,11 @@ $@"
             {{
                 if (have_{f.Name.ToLower()} == 1)
                 {{
-                    this.{f.Name} = new {f.FieldType._GetTypeDecl_Csharp()}();
-                    if ((err = this.{f.Name}.Read(om, data)) != 0)
+                    var __{f.Name} =  new {f.FieldType._GetTypeDecl_Csharp()}();
+                    if ((err = __{f.Name}.Read(om, data, out __{f.Name})) != 0)
                         return err;
+                    else
+                        self.{f.Name}=__{f.Name};
                 }}
             }}
             else
@@ -238,8 +311,8 @@ $@"
                     for (int i = 0; i < {f.Name.ToLower()}_len; i++)
                     {{
                         var p = new {tn}();
-                        if ((err = p.Read(om, data)) == 0)
-                            this.{f.Name}.Add(p);
+                        if ((err = p.Read(om, data, out p)) == 0)
+                            self.{f.Name}.Add(p);
                         else return err;
                     }}
                 }}
@@ -247,13 +320,27 @@ $@"
             }}
 ");
                 }
+                else if (f.FieldType._IsShared() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+                {
+                    throw new Exception($"struct not Shared<T> Field :{f.FieldType.FullName}");
+                }
+                else if (f.FieldType.IsEnum)
+                {
+                    sb.Append($@"
+            if (data.Offset >= endoffset)
+                self.{f.Name} = default;
+            else if ((err = om.ReadFrom(data, out {f.FieldType._GetEnumUnderlyingTypeName_Csharp()} __{f.Name.ToLower()})) == 0)
+                self.{f.Name} = ({f.FieldType._GetTypeDecl_Csharp()}) __{f.Name.ToLower()};
+            else return err;
+");
+                }
                 else
                 {
                     sb.Append($@"
             if (data.Offset >= endoffset)
-                this.{f.Name} = default;
+                self.{f.Name} = default;
             else if ((err = om.{(f.FieldType._IsShared() ? "ReadObj" : (f.FieldType._IsListShared() ? "ReadObj" : "ReadFrom"))}(data, out {f.FieldType._GetTypeDecl_Csharp()} __{f.Name.ToLower()})) == 0)
-                this.{f.Name} = __{f.Name.ToLower()};
+                self.{f.Name} = __{f.Name.ToLower()};
             else return err;
 ");
                 }
@@ -314,7 +401,7 @@ $@"
             else
             {{
                 data.WriteFixed((byte)1);
-                this.{f.Name}.Write(om, data);
+                this.{f.Name}?.Write(om, data);
             }}");
             }
             else if (f.FieldType._IsList() && f.FieldType.GetGenericArguments()[0]._IsStruct())
@@ -324,6 +411,11 @@ $@"
             foreach (var item in this.{f.Name})
                 item.Write(om, data);
 ");
+            }
+            else if (f.FieldType.IsEnum)
+            {
+                sb.Append($@"
+            om.WriteTo(data, ({f.FieldType._GetEnumUnderlyingTypeName_Csharp()}) this.{f.Name});");
             }
             else
             {
@@ -401,7 +493,7 @@ $@"
             {
                 sb.Append(p._GetDesc()._GetComment_CSharp(8) +
 $@"
-        public {ptn} {p.Name} {{ get; set; }} = new {ptn}();
+        public {ptn} {p.Name} {{ get; set; }}
 ");
             }
             else if (pt._IsList() && pt.GetGenericArguments()[0]._IsStruct())
@@ -409,6 +501,13 @@ $@"
                 sb.Append(p._GetDesc()._GetComment_CSharp(8) +
 $@"
         public {ptn} {p.Name} {{ get; set; }} = new {ptn}();
+");
+            }
+            else if (pt._IsNullable() && !pt._IsNullableNumber())
+            {
+                sb.Append(p._GetDesc()._GetComment_CSharp(8) +
+$@"
+        public {ptn}? {p.Name} {{ get; set; }}
 ");
             }
             else
@@ -461,8 +560,10 @@ $@"
                 {
 
                     sb.Append($@"
-            if ((err = this.{f.Name}.Read(om, data)) != 0)
+            if ((err = this.{f.Name}.Read(om, data, out var __{f.Name.ToLower()})) != 0)
                 return err;
+            else
+                this.{f.Name}= __{f.Name.ToLower()};
 ");
                 }
                 else if (f.FieldType._IsNullable() && !f.FieldType._IsNullableNumber())
@@ -472,9 +573,11 @@ $@"
             {{
                 if (have_{f.Name.ToLower()} == 1)
                 {{
-                    this.{f.Name} = new {f.FieldType._GetTypeDecl_Csharp()}();
-                    if ((err = this.{f.Name}.Read(om, data)) != 0)
+                   var __{f.Name} =  new {f.FieldType._GetTypeDecl_Csharp()}();
+                    if ((err = __{f.Name}.Read(om, data, out __{f.Name})) != 0)
                         return err;
+                    else
+                        this.{f.Name}=__{f.Name};
                 }}
             }}
             else return err;
@@ -489,11 +592,23 @@ $@"
                 for (int i = 0; i < {f.Name.ToLower()}_len; i++)
                 {{
                     var p = new {tn}();
-                    if ((err = p.Read(om, data)) == 0)
+                    if ((err = p.Read(om, data, out p)) == 0)
                         this.{f.Name}.Add(p);
                     else return err;
                 }}
             }}
+            else return err;
+");
+                }
+                else if (f.FieldType._IsShared() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+                {
+                    throw new Exception($"struct not Shared<T> Field :{f.FieldType.FullName}");
+                }
+                else if (f.FieldType.IsEnum)
+                {
+                    sb.Append($@"
+            if ((err = om.ReadFrom(data, out {f.FieldType._GetEnumUnderlyingTypeName_Csharp()} __{f.Name.ToLower()})) == 0)
+                this.{f.Name} = ({f.FieldType._GetTypeDecl_Csharp()}) __{f.Name.ToLower()};
             else return err;
 ");
                 }
@@ -511,8 +626,11 @@ $@"
                 if (f.FieldType._IsStruct())
                 {
                     sb.Append($@"
-            if (data.Offset < endoffset && (err =  this.{f.Name}.Read(om, data)) != 0)
+            var __{f.Name.ToLower()}=new {f.FieldType._GetTypeDecl_Csharp()}();
+            if (data.Offset < endoffset && (err =  __{f.Name.ToLower()}.Read(om, data, out __{f.Name.ToLower()})) != 0)
                 return err;
+            else
+                this.{f.Name}=__{f.Name.ToLower()};
 ");
                 }
                 else if (f.FieldType._IsNullable() && !f.FieldType._IsNullableNumber())
@@ -522,9 +640,11 @@ $@"
             {{
                 if (have_{f.Name.ToLower()} == 1)
                 {{
-                    this.{f.Name} = new {f.FieldType._GetTypeDecl_Csharp()}();
-                    if ((err = this.{f.Name}.Read(om, data)) != 0)
+                    var __{f.Name} =  new {f.FieldType._GetTypeDecl_Csharp()}();
+                    if ((err = __{f.Name}.Read(om, data, out __{f.Name})) != 0)
                         return err;
+                    else
+                        this.{f.Name}=__{f.Name};
                 }}
             }}
             else
@@ -542,13 +662,27 @@ $@"
                     for (int i = 0; i < {f.Name.ToLower()}_len; i++)
                     {{
                         var p = new {tn}();
-                        if ((err = p.Read(om, data)) == 0)
+                        if ((err = p.Read(om, data, out p)) == 0)
                             this.{f.Name}.Add(p);
                         else return err;
                     }}
                 }}
                 else return err;
             }}
+");
+                }
+                else if (f.FieldType._IsShared() && f.FieldType.GetGenericArguments()[0]._IsStruct())
+                {
+                    throw new Exception($"struct not Shared<T> Field :{f.FieldType.FullName}");
+                }
+                else if (f.FieldType.IsEnum)
+                {
+                    sb.Append($@"
+            if (data.Offset >= endoffset)
+                this.{f.Name} = default;
+            else if ((err = om.ReadFrom(data, out {f.FieldType._GetEnumUnderlyingTypeName_Csharp()} __{f.Name.ToLower()})) == 0)
+                this.{f.Name} = ({f.FieldType._GetTypeDecl_Csharp()}) __{f.Name.ToLower()};
+            else return err;
 ");
                 }
                 else
@@ -609,7 +743,7 @@ $@"
             {
                 sb.Append($@"
             this.{f.Name}.Write(om, data);");
-            }
+            }           
             else if (f.FieldType._IsNullable() && !f.FieldType._IsNullableNumber())
             {
                 sb.Append($@"
@@ -618,7 +752,7 @@ $@"
             else
             {{
                 data.WriteFixed((byte)1);
-                this.{f.Name}.Write(om, data);
+                this.{f.Name}?.Write(om, data);
             }}");
             }
             else if (f.FieldType._IsList() && f.FieldType.GetGenericArguments()[0]._IsStruct())
@@ -628,6 +762,11 @@ $@"
             foreach (var item in this.{f.Name})
                 item.Write(om, data);
 ");
+            }
+            else if (f.FieldType.IsEnum)
+            {
+                sb.Append($@"
+            om.WriteTo(data, ({f.FieldType._GetEnumUnderlyingTypeName_Csharp()}) this.{f.Name});");
             }
             else
             {
