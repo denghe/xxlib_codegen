@@ -40,7 +40,7 @@ export enum " + en + @" {");
             var fs = e._GetEnumFields();
             foreach (var f in fs) {
                 sb.Append(f._GetDesc()._GetComment_Js(4) + @"
-    " + f.Name + " = " + f._GetEnumValue(e) + ";");
+    " + f.Name + " = " + f._GetEnumValue(e) + ",");
             }
             sb.Append(@"
 }");

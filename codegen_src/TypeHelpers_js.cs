@@ -100,7 +100,7 @@ public static partial class TypeHelpers {
         else if (t._IsNullable()) {
             var bak = t;
             t = t._GetChildType();
-            var s = "let n = d.Ru8(); if (n == 0) " + owner + varName + " = null; else { ";
+            var s = "{let n = d.Ru8(); if (n == 0) " + owner + varName + " = null; else { ";
             if (t._IsData()) {
                 s += owner + varName + " = d.Rdata(); }";
             }
@@ -115,6 +115,7 @@ public static partial class TypeHelpers {
             }
             else
                 throw new System.Exception("unsupported type: " + bak.FullName);
+            s += "}";
             return s;
         }
         throw new Exception("unsupported type");

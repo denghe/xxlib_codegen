@@ -14,7 +14,7 @@ public static class GenCpp {
 
 
     // 单纯类型：写 Data 时全程不需要用到 ObjManager, 且没有打开兼容模式( 成员只能是简单类型，可嵌套结构体和泛型，不可出现 类 或 Shared/Weak )
-    public static bool _IsPureType(this Type t, bool isFirst = true) {
+    public static bool _IsPureType(this Type t, int level = 0, bool isFirst = true) {
         //if (t._IsExternal()) return t.IsValueType;
         if (isFirst) {
             TypeHelpers.tmpTypes.Clear();
@@ -26,16 +26,17 @@ public static class GenCpp {
             if (t._IsWeak() || t._IsShared()) return false;
             foreach (var ct in t.GetGenericArguments()) {
                 if (TypeHelpers.tmpTypes.Contains(ct)) continue;
-                if (!_IsPureType(ct, false)) return false;
+                if (!_IsPureType(ct, level + 1, false)) return false;
             }
             return true;
         }
         if (t._IsStruct() || t._IsClass()) {
+            if (level > 0) return false;
             if (t._HasCompatible()) return false;
             var fs = t._GetExtractFields();
             foreach (var f in fs) {
                 if (TypeHelpers.tmpTypes.Contains(f.FieldType)) continue;
-                if (!_IsPureType(f.FieldType, false)) return false;
+                if (!_IsPureType(f.FieldType, level + 1, false)) return false;
             }
             return true;
         }
@@ -314,7 +315,7 @@ namespace xx {");
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
-                if (ft._IsPureType()) {
+                if (ft._IsPureType(1)) {
                     sb.Append(@"
         d.Write(in." + f.Name + ");");
                 }
@@ -350,7 +351,7 @@ namespace xx {");
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
-                if (ft._IsPureType()) {
+                if (ft._IsPureType(1)) {
                     sb.Append(@"
         d.Write<false>(in." + f.Name + ");");
                 }
@@ -414,7 +415,7 @@ namespace xx {");
             }
             else {
                 foreach (var f in fs) {
-                    if (f.FieldType._IsPureType()) {
+                    if (f.FieldType._IsPureType(1)) {
                         sb.Append(@"
         if (int r = d.Read(out." + f.Name + @")) return r;");
                     }
@@ -606,7 +607,7 @@ namespace " + ns + "{");
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
-                if (ft._IsPureType()) {
+                if (ft._IsPureType(1)) {
                     sb.Append(@"
 " + ss + @"    d.Write(this->" + f.Name + ");");
                 }
@@ -666,7 +667,7 @@ namespace " + ns + "{");
             }
             else {
                 foreach (var f in fs) {
-                    if (f.FieldType._IsPureType()) {
+                    if (f.FieldType._IsPureType(1)) {
                         sb.Append(@"
 " + ss + @"    if (int r = d.Read(this->" + f.Name + @")) return r;");
                     }
