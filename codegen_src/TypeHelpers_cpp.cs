@@ -185,15 +185,15 @@ public static partial class TypeHelpers {
     /// <summary>
     /// 获取 Cpp 风格的注释
     /// </summary>
-    public static string _GetComment_Cpp(this string s, int space) {
+    public static string _GetComment_Cpp(this string s, int space, string prefix = "") {
         if (s.Trim() == "")
-            return "";
+            return prefix + "";
         var sps = new string(' ', space);
         s = s.Replace("\r\n", "\n")
          .Replace("\r", "\n")
-         .Replace("\n", "\r\n" + sps + "// ");
+         .Replace("\n", "\r\n" + prefix + sps + "// ");
         return "\r\n"
- + sps + @"// " + s;
+ + prefix + sps + @"// " + s;
     }
 
     /// <summary>

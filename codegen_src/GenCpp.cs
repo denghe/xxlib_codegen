@@ -62,54 +62,54 @@ public static class GenCpp {
 
     public static void Gen_h() {
         var sb = new StringBuilder();
-        sb.Append(@"#pragma once");
+        sb.Append(@"/*CodeGen*/ #pragma once");
 
         // 包含依赖
         if (cfg.refsCfgs.Count == 0) {
             sb.Append(@"
-#include <xx_obj.h>");
+/*CodeGen*/ #include <xx_obj.h>");
         }
         foreach (var c in cfg.refsCfgs) {
             sb.Append(@"
-#include <" + c.name + @".h>");
+/*CodeGen*/ #include <" + c.name + @".h>");
         }
 
         // 前置切片
         createEmptyFiles.Add(cfg.name + ".h.inc");
         sb.Append(@"
-#include <" + cfg.name + @".h.inc>");
+/*CodeGen*/ #include <" + cfg.name + @".h.inc>");
 
         // 校验和注册
         sb.Append(@"
-struct CodeGen_" + cfg.name + @" {
-	inline static const ::std::string md5 = """ + StringHelpers.MD5PlaceHolder + @""";
-    static void Register();
-    CodeGen_" + cfg.name + @"() { Register(); }
-};
-inline CodeGen_" + cfg.name + @" __CodeGen_" + cfg.name + @";");
+/*CodeGen*/ struct CodeGen_" + cfg.name + @" {
+/*CodeGen*/     inline static const ::std::string md5 = """ + StringHelpers.MD5PlaceHolder + @""";
+/*CodeGen*/     static void Register();
+/*CodeGen*/     CodeGen_" + cfg.name + @"() { Register(); }
+/*CodeGen*/ };
+/*CodeGen*/ inline CodeGen_" + cfg.name + @" __CodeGen_" + cfg.name + @";");
 
         // 所有 本地 class 的预声明
         foreach (var c in cfg.localClasss) {
             var ns = c._GetNamespace_Cpp(false);
             if (string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-struct " + c.Name + ";");
+/*CodeGen*/ struct " + c.Name + ";");
             }
             else sb.Append(@"
-namespace " + c._GetNamespace_Cpp(false) + @" { struct " + c.Name + "; }");
+/*CodeGen*/ namespace " + c._GetNamespace_Cpp(false) + @" { struct " + c.Name + "; }");
         }
 
         // 所有 本地 class 的 TypeId 映射
         if (cfg.localClasss.Count > 0) {
             sb.Append(@"
-namespace xx {");
+/*CodeGen*/ namespace xx {");
             foreach (var c in cfg.localClasss) {
                 sb.Append(@"
-    template<> struct TypeId<" + c._GetTypeDecl_Cpp() + @"> { static const uint16_t value = " + c._GetTypeId() + @"; };");
+/*CodeGen*/     template<> struct TypeId<" + c._GetTypeDecl_Cpp() + @"> { static const uint16_t value = " + c._GetTypeId() + @"; };");
             }
             sb.Append(@"
-}
-");
+/*CodeGen*/ }
+/*CodeGen*/ ");
         }
 
         // 所有 本地 enums
@@ -118,25 +118,25 @@ namespace xx {");
             string ss = "";
             if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-namespace " + ns + "{");
+/*CodeGen*/ namespace " + ns + "{");
                 ss = "    ";
             }
 
-            sb.Append(e._GetDesc()._GetComment_Cpp(4) + @"
-" + ss + @"    enum class " + e.Name + @" : " + e._GetEnumUnderlyingTypeName_Cpp() + @" {");
+            sb.Append(e._GetDesc()._GetComment_Cpp(4, "/*CodeGen*/ ") + @"
+/*CodeGen*/ " + ss + @"    enum class " + e.Name + @" : " + e._GetEnumUnderlyingTypeName_Cpp() + @" {");
 
             var fs = e._GetEnumFields();
             foreach (var f in fs) {
-                sb.Append(f._GetDesc()._GetComment_Cpp(8 - ss.Length) + @"
-" + ss + @"        " + f.Name + " = " + f._GetEnumValue(e) + ",");
+                sb.Append(f._GetDesc()._GetComment_Cpp(8 - ss.Length, "/*CodeGen*/ ") + @"
+/*CodeGen*/ " + ss + @"        " + f.Name + " = " + f._GetEnumValue(e) + ",");
             }
 
             sb.Append(@"
-" + ss + @"    };");
+/*CodeGen*/ " + ss + @"    };");
 
             if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-}");
+/*CodeGen*/ }");
             }
         }
 
@@ -146,7 +146,7 @@ namespace " + ns + "{");
             string ss = "";
             if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-namespace " + ns + @" {");
+/*CodeGen*/ namespace " + ns + @" {");
                 ss = "    ";
             }
 
@@ -154,21 +154,21 @@ namespace " + ns + @" {");
             var bt = c.BaseType;
             if (c._IsStruct()) {
                 var btn = c._HasBaseType() ? (" : " + bt._GetTypeDecl_Cpp()) : "";
-                sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length) + @"
-" + ss + @"struct " + c.Name + btn + @" {
-" + ss + @"    XX_OBJ_STRUCT_H(" + c.Name + @")");
+                sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length, "/*CodeGen*/ ") + @"
+/*CodeGen*/ " + ss + @"struct " + c.Name + btn + @" {
+/*CodeGen*/ " + ss + @"    XX_OBJ_STRUCT_H(" + c.Name + @")");
             }
             else {
                 var btn = c._HasBaseType() ? bt._GetTypeDecl_Cpp() : "::xx::ObjBase";
-                sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length) + @"
-" + ss + @"struct " + c.Name + " : " + btn + @" {
-" + ss + @"    XX_OBJ_OBJECT_H(" + c.Name + @", " + btn + @")");
+                sb.Append(c._GetDesc()._GetComment_Cpp(ss.Length, "/*CodeGen*/ ") + @"
+/*CodeGen*/ " + ss + @"struct " + c.Name + " : " + btn + @" {
+/*CodeGen*/ " + ss + @"    XX_OBJ_OBJECT_H(" + c.Name + @", " + btn + @")");
             }
 
             // 附加标签
             if (c._IsPureType()) {
                 sb.Append(@"
-" + ss + @"    using IsSimpleType_v = " + c.Name + ";");
+/*CodeGen*/ " + ss + @"    using IsSimpleType_v = " + c.Name + ";");
             }
 
             // 前置包含
@@ -176,15 +176,15 @@ namespace " + ns + @" {");
                 var fn = c._GetUnderlineFullname() + ".inc";
                 createEmptyFiles.Add(fn);
                 sb.Append(@"
-#include <" + fn + @">");
+/*CodeGen*/ #include <" + fn + @">");
             }
 
             // 成员
             foreach (var f in c._GetFieldsConsts()) {
                 var ft = f.FieldType;
                 var ftn = ft._GetTypeDecl_Cpp();
-                sb.Append(f._GetDesc()._GetComment_Cpp(8) + @"
-" + ss + @"    " + (f.IsStatic ? "constexpr " : "") + ftn + " " + f.Name);
+                sb.Append(f._GetDesc()._GetComment_Cpp(8, "/*CodeGen*/ ") + @"
+/*CodeGen*/ " + ss + @"    " + (f.IsStatic ? "constexpr " : "") + ftn + " " + f.Name);
 
                 var v = f.GetValue(f.IsStatic ? null : o);
                 var dv = ft._GetDefaultValueDecl_Cpp(v);
@@ -199,7 +199,7 @@ namespace " + ns + @" {");
             // WriteTo
             if (c._IsClass() && c._IsPureType()) {
                 sb.Append(@"
-" + ss + @"    static void WriteTo(xx::Data& d");
+/*CodeGen*/ " + ss + @"    static void WriteTo(xx::Data& d");
                 foreach (var f in c._GetExtractFields()) {
                     var ft = f.FieldType;
                     var ftn = ft._GetTypeDecl_Cpp();
@@ -216,15 +216,15 @@ namespace " + ns + @" {");
                 var fn = c._GetUnderlineFullname() + "_.inc";
                 createEmptyFiles.Add(fn);
                 sb.Append(@"
-#include <" + fn + @">");
+/*CodeGen*/ #include <" + fn + @">");
             }
 
             sb.Append(@"
-" + ss + @"};");
+/*CodeGen*/ " + ss + @"};");
 
             if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-}");
+/*CodeGen*/ }");
             }
         });
 
@@ -237,21 +237,21 @@ namespace " + ns + @" {");
         }
         if (cfg.localStructs.Count > 0) {
             sb.Append(@"
-namespace xx {");
+/*CodeGen*/ namespace xx {");
             foreach (var c in cfg.localStructs) {
                 sb.Append(@"
-	XX_OBJ_STRUCT_TEMPLATE_H(" + c._GetTypeDecl_Cpp() + @")");
+/*CodeGen*/ 	XX_OBJ_STRUCT_TEMPLATE_H(" + c._GetTypeDecl_Cpp() + @")");
                 if (c._IsPureType()) {
                     sb.Append(@"
-    template<typename T> struct DataFuncs<T, std::enable_if_t<std::is_same_v<" + c._GetTypeDecl_Cpp() + @", std::decay_t<T>>>> {
-		template<bool needReserve = true>
-		static inline void Write(Data& d, T const& in) { (*(xx::ObjManager*)-1).Write(d, in); }
-		static inline int Read(Data_r& d, T& out) { return (*(xx::ObjManager*)-1).Read(d, out); }
-    };");
+/*CodeGen*/     template<typename T> struct DataFuncs<T, std::enable_if_t<std::is_same_v<" + c._GetTypeDecl_Cpp() + @", std::decay_t<T>>>> {
+/*CodeGen*/ 		template<bool needReserve = true>
+/*CodeGen*/ 		static inline void Write(Data& d, T const& in) { (*(xx::ObjManager*)-1).Write(d, in); }
+/*CodeGen*/ 		static inline int Read(Data_r& d, T& out) { return (*(xx::ObjManager*)-1).Read(d, out); }
+/*CodeGen*/     };");
                 }
             }
             sb.Append(@"
-}");
+/*CodeGen*/ }");
         }
 
         // 后置切片
@@ -259,7 +259,7 @@ namespace xx {");
             var fn = cfg.name + "_.h.inc";
             createEmptyFiles.Add(fn);
             sb.Append(@"
-#include <" + fn + @">
+/*CodeGen*/ #include <" + fn + @">
 ");
         }
 
@@ -271,25 +271,25 @@ namespace xx {");
         // 前置包含
         {
             var fn = cfg.name + ".cpp.inc";
-            sb.Append("#include <" + cfg.name + @".h>
-#include <" + fn + @">");
+            sb.Append("/*CodeGen*/ #include <" + cfg.name + @".h>
+/*CodeGen*/ #include <" + fn + @">");
             createEmptyFiles.Add(fn);
         }
 
         // type id 注册
         sb.Append(@"
-void CodeGen_" + cfg.name + @"::Register() {");
+/*CodeGen*/ void CodeGen_" + cfg.name + @"::Register() {");
         foreach (var c in cfg.localClasss) {
             sb.Append(@"
-	::xx::ObjManager::Register<" + c._GetTypeDecl_Cpp() + @">();");
+/*CodeGen*/ 	::xx::ObjManager::Register<" + c._GetTypeDecl_Cpp() + @">();");
         }
         sb.Append(@"
-}");
+/*CodeGen*/ }");
 
         // 模板适配
         if (cfg.localStructs.Count > 0) {
             sb.Append(@"
-namespace xx {");
+/*CodeGen*/ namespace xx {");
         }
         foreach (var c in cfg.localStructs) {
             var o = c._GetInstance();
@@ -299,96 +299,96 @@ namespace xx {");
 
             // Write
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
+/*CodeGen*/ 	void ObjFuncs<" + ctn + @", void>::Write(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Write(om, d, in);");
+/*CodeGen*/         ObjFuncs<" + btn + ">::Write(om, d, in);");
             }
 
             if (c._HasCompatible()) {
                 sb.Append(@"
-        auto bak = d.WriteJump(sizeof(uint32_t));");
+/*CodeGen*/         auto bak = d.WriteJump(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 if (ft._IsPureType(1)) {
                     sb.Append(@"
-        d.Write(in." + f.Name + ");");
+/*CodeGen*/         d.Write(in." + f.Name + ");");
                 }
                 else {
                     sb.Append(@"
-        om.Write(d, in." + f.Name + ");");
+/*CodeGen*/         om.Write(d, in." + f.Name + ");");
                 }
             }
 
             if (c._HasCompatible()) {
                 sb.Append(@"
-        d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
+/*CodeGen*/         d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
-    }");
+/*CodeGen*/     }");
 
             // WriteFast
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::WriteFast(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
+/*CodeGen*/ 	void ObjFuncs<" + ctn + @", void>::WriteFast(::xx::ObjManager& om, ::xx::Data& d, " + ctn + @" const& in) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Write<false>(om, d, in);");
+/*CodeGen*/         ObjFuncs<" + btn + ">::Write<false>(om, d, in);");
             }
 
             if (c._HasCompatible()) {
                 sb.Append(@"
-        auto bak = d.WriteJump<false>(sizeof(uint32_t));");
+/*CodeGen*/         auto bak = d.WriteJump<false>(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 if (ft._IsPureType(1)) {
                     sb.Append(@"
-        d.Write<false>(in." + f.Name + ");");
+/*CodeGen*/         d.Write<false>(in." + f.Name + ");");
                 }
                 else {
                     sb.Append(@"
-        om.Write<false>(d, in." + f.Name + ");");
+/*CodeGen*/         om.Write<false>(d, in." + f.Name + ");");
                 }
             }
 
             if (c._HasCompatible()) {
                 sb.Append(@"
-        d.WriteFixedAt<false>(bak, (uint32_t)(d.len - bak));");
+/*CodeGen*/         d.WriteFixedAt<false>(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
-    }");
+/*CodeGen*/     }");
 
             // Read
             sb.Append(@"
-	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, ::xx::Data_r& d, " + ctn + @"& out) {");
+/*CodeGen*/ 	int ObjFuncs<" + ctn + @", void>::Read(::xx::ObjManager& om, ::xx::Data_r& d, " + ctn + @"& out) {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
 
                 sb.Append(@"
-        if (int r = ObjFuncs<" + btn + ">::Read(om, d, out)) return r;");
+/*CodeGen*/         if (int r = ObjFuncs<" + btn + ">::Read(om, d, out)) return r;");
             }
 
             if (c._HasCompatible()) {
                 sb.Append(@"
-        uint32_t siz;
-        if (int r = d.ReadFixed(siz)) return r;
-        if (siz < sizeof(siz)) return __LINE__;
-        siz -= sizeof(siz);
-        if (siz > d.len - d.offset) return __LINE__;
-        xx::Data_r dr(d.buf + d.offset, siz);
+/*CodeGen*/         uint32_t siz;
+/*CodeGen*/         if (int r = d.ReadFixed(siz)) return r;
+/*CodeGen*/         if (siz < sizeof(siz)) return __LINE__;
+/*CodeGen*/         siz -= sizeof(siz);
+/*CodeGen*/         if (siz > d.len - d.offset) return __LINE__;
+/*CodeGen*/         xx::Data_r dr(d.buf + d.offset, siz);
 ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
@@ -404,49 +404,49 @@ namespace xx {");
                     }
 
                     sb.Append(@"
-        if (dr.offset == siz) " + dv + @";
-        else if (int r = om.Read(dr, out." + f.Name + @")) return r;");
+/*CodeGen*/         if (dr.offset == siz) " + dv + @";
+/*CodeGen*/         else if (int r = om.Read(dr, out." + f.Name + @")) return r;");
                 }
 
                 sb.Append(@"
 
-        d.offset += siz;");
+/*CodeGen*/         d.offset += siz;");
 
             }
             else {
                 foreach (var f in fs) {
                     if (f.FieldType._IsPureType(1)) {
                         sb.Append(@"
-        if (int r = d.Read(out." + f.Name + @")) return r;");
+/*CodeGen*/         if (int r = d.Read(out." + f.Name + @")) return r;");
                     }
                     else {
                         sb.Append(@"
-        if (int r = om.Read(d, out." + f.Name + @")) return r;");
+/*CodeGen*/         if (int r = om.Read(d, out." + f.Name + @")) return r;");
                     }
                 }
             }
 
             sb.Append(@"
-        return 0;
-    }");
+/*CodeGen*/         return 0;
+/*CodeGen*/     }");
 
             // Append
             sb.Append(@"
-	void ObjFuncs<" + ctn + @", void>::Append(ObjManager &om, std::string& s, " + ctn + @" const& in) {
-#ifndef XX_DISABLE_APPEND
-        s.push_back('{');
-        AppendCore(om, s, in);
-        s.push_back('}');
-#endif
-    }
-	void ObjFuncs<" + ctn + @", void>::AppendCore(ObjManager &om, std::string& s, " + ctn + @" const& in) {
-#ifndef XX_DISABLE_APPEND");
+/*CodeGen*/ 	void ObjFuncs<" + ctn + @", void>::Append(ObjManager &om, std::string& s, " + ctn + @" const& in) {
+/*CodeGen*/ #ifndef XX_DISABLE_APPEND
+/*CodeGen*/         s.push_back('{');
+/*CodeGen*/         AppendCore(om, s, in);
+/*CodeGen*/         s.push_back('}');
+/*CodeGen*/ #endif
+/*CodeGen*/     }
+/*CodeGen*/ 	void ObjFuncs<" + ctn + @", void>::AppendCore(ObjManager &om, std::string& s, " + ctn + @" const& in) {
+/*CodeGen*/ #ifndef XX_DISABLE_APPEND");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        auto sizeBak = s.size();
-        ObjFuncs<" + btn + ">::AppendCore(om, s, in);");
+/*CodeGen*/         auto sizeBak = s.size();
+/*CodeGen*/         ObjFuncs<" + btn + ">::AppendCore(om, s, in);");
             }
 
             foreach (var f in fs) {
@@ -454,82 +454,82 @@ namespace xx {");
                 if (f == fs[0]) {
                     if (c._HasBaseType()) {
                         sb.Append(@"
-        if (sizeBak < s.size()) {
-            s.push_back(',');
-        }");
+/*CodeGen*/         if (sizeBak < s.size()) {
+/*CodeGen*/             s.push_back(',');
+/*CodeGen*/         }");
                     }
                     sb.Append(@"
-        om.Append(s, ""\""" + f.Name + @"\"":"", in." + f.Name + @"); ");
+/*CodeGen*/         om.Append(s, ""\""" + f.Name + @"\"":"", in." + f.Name + @"); ");
                 }
                 else {
                     sb.Append(@"
-        om.Append(s, "",\""" + f.Name + @"\"":"", in." + f.Name + @");");
+/*CodeGen*/         om.Append(s, "",\""" + f.Name + @"\"":"", in." + f.Name + @");");
                 }
             }
             sb.Append(@"
-#endif
-    }");
+/*CodeGen*/ #endif
+/*CodeGen*/     }");
 
             // Clone
             sb.Append(@"
-    void ObjFuncs<" + ctn + @">::Clone(::xx::ObjManager& om, " + ctn + @" const& in, " + ctn + @" &out) {");
+/*CodeGen*/     void ObjFuncs<" + ctn + @">::Clone(::xx::ObjManager& om, " + ctn + @" const& in, " + ctn + @" &out) {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::Clone_(om, in, out);");
+/*CodeGen*/         ObjFuncs<" + btn + ">::Clone_(om, in, out);");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        om.Clone_(in." + f.Name + ", out." + f.Name + ");");
+/*CodeGen*/         om.Clone_(in." + f.Name + ", out." + f.Name + ");");
             }
             sb.Append(@"
-    }");
+/*CodeGen*/     }");
 
             // RecursiveCheck
             sb.Append(@"
-    int ObjFuncs<" + ctn + @">::RecursiveCheck(::xx::ObjManager& om, " + ctn + @" const& in) {");
+/*CodeGen*/     int ObjFuncs<" + ctn + @">::RecursiveCheck(::xx::ObjManager& om, " + ctn + @" const& in) {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        if (int r = ObjFuncs<" + btn + ">::RecursiveCheck(om, in)) return r;");
+/*CodeGen*/         if (int r = ObjFuncs<" + btn + ">::RecursiveCheck(om, in)) return r;");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        if (int r = om.RecursiveCheck(in." + f.Name + ")) return r;");
+/*CodeGen*/         if (int r = om.RecursiveCheck(in." + f.Name + ")) return r;");
             }
             sb.Append(@"
-        return 0;
-    }");
+/*CodeGen*/         return 0;
+/*CodeGen*/     }");
 
             // RecursiveReset
             sb.Append(@"
-    void ObjFuncs<" + ctn + @">::RecursiveReset(::xx::ObjManager& om, " + ctn + @"& in) {");
+/*CodeGen*/     void ObjFuncs<" + ctn + @">::RecursiveReset(::xx::ObjManager& om, " + ctn + @"& in) {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::RecursiveReset(om, in);");
+/*CodeGen*/         ObjFuncs<" + btn + ">::RecursiveReset(om, in);");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-        om.RecursiveReset(in." + f.Name + ");");
+/*CodeGen*/         om.RecursiveReset(in." + f.Name + ");");
             }
             sb.Append(@"
-    }");
+/*CodeGen*/     }");
 
             // SetDefaultValue
             sb.Append(@"
-    void ObjFuncs<" + ctn + @">::SetDefaultValue(::xx::ObjManager& om, " + ctn + @"& in) {");
+/*CodeGen*/     void ObjFuncs<" + ctn + @">::SetDefaultValue(::xx::ObjManager& om, " + ctn + @"& in) {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 var btn = bt._GetTypeDecl_Cpp();
                 sb.Append(@"
-        ObjFuncs<" + btn + ">::SetDefaultValue(om, in);");
+/*CodeGen*/         ObjFuncs<" + btn + ">::SetDefaultValue(om, in);");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
@@ -545,14 +545,14 @@ namespace xx {");
                 }
 
                 sb.Append(@"
-        " + dv + @";");
+/*CodeGen*/         " + dv + @";");
             }
             sb.Append(@"
-    }");
+/*CodeGen*/     }");
         }
         if (cfg.localStructs.Count > 0) {
             sb.Append(@"
-}");
+/*CodeGen*/ }");
         }
 
         // class 成员函数
@@ -561,7 +561,7 @@ namespace xx {");
             string ss = "";
             if (!string.IsNullOrEmpty(ns)) {
                 sb.Append(@"
-namespace " + ns + "{");
+/*CodeGen*/ namespace " + ns + "{");
                 ss = "    ";
             }
 
@@ -571,7 +571,7 @@ namespace " + ns + "{");
             // WriteTo
             if (c._IsPureType()) {
                 sb.Append(@"
-" + ss + @"void " + c.Name + @"::WriteTo(xx::Data& d");
+/*CodeGen*/ " + ss + @"void " + c.Name + @"::WriteTo(xx::Data& d");
                 foreach (var f in c._GetExtractFields()) {
                     var ft = f.FieldType;
                     var ftn = ft._GetTypeDecl_Cpp();
@@ -581,68 +581,68 @@ namespace " + ns + "{");
                     sb.Append(", " + ftn + " const& " + f.Name);
                 }
                 sb.Append(@") {
-" + ss + @"    d.Write(xx::TypeId_v<" + c.Name + ">);");
+/*CodeGen*/ " + ss + @"    d.Write(xx::TypeId_v<" + c.Name + ">);");
                 foreach (var f in c._GetExtractFields()) {
                     sb.Append(@"
-" + ss + @"    d.Write(" + f.Name + ");");
+/*CodeGen*/ " + ss + @"    d.Write(" + f.Name + ");");
                 }
                 sb.Append(@"
-" + ss + @"}");
+/*CodeGen*/ " + ss + @"}");
             }
 
             // Write
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::Write(::xx::ObjManager& om, ::xx::Data& d) const {");
+/*CodeGen*/ " + ss + @"void " + c.Name + @"::Write(::xx::ObjManager& om, ::xx::Data& d) const {");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::Write(om, d);");
+/*CodeGen*/ " + ss + @"    this->BaseType::Write(om, d);");
             }
 
             if (c._HasCompatible()) {
                 sb.Append(@"
-" + ss + @"    auto bak = d.WriteJump(sizeof(uint32_t));");
+/*CodeGen*/ " + ss + @"    auto bak = d.WriteJump(sizeof(uint32_t));");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 if (ft._IsPureType(1)) {
                     sb.Append(@"
-" + ss + @"    d.Write(this->" + f.Name + ");");
+/*CodeGen*/ " + ss + @"    d.Write(this->" + f.Name + ");");
                 }
                 else {
                     sb.Append(@"
-" + ss + @"    om.Write(d, this->" + f.Name + ");");
+/*CodeGen*/ " + ss + @"    om.Write(d, this->" + f.Name + ");");
                 }
             }
 
             if (c._HasCompatible()) {
                 sb.Append(@"
-" + ss + @"    d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
+/*CodeGen*/ " + ss + @"    d.WriteFixedAt(bak, (uint32_t)(d.len - bak));");
             }
 
             sb.Append(@"
-" + ss + @"}");
+/*CodeGen*/ " + ss + @"}");
 
             // Read
             sb.Append(@"
-" + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om, ::xx::Data_r& d) {");
+/*CodeGen*/ " + ss + @"int " + c.Name + @"::Read(::xx::ObjManager& om, ::xx::Data_r& d) {");
 
             if (c._HasBaseType()) {
                 sb.Append(@"
-" + ss + @"    if (int r = this->BaseType::Read(om, d)) return r;");
+/*CodeGen*/ " + ss + @"    if (int r = this->BaseType::Read(om, d)) return r;");
             }
 
             if (c._HasCompatible()) {
                 sb.Append(@"
-" + ss + @"    uint32_t siz;
-" + ss + @"    if (int r = d.ReadFixed(siz)) return r;
-" + ss + @"    if (siz < sizeof(siz)) return __LINE__;
-" + ss + @"    siz -= sizeof(siz);
-" + ss + @"    if (siz > d.len - d.offset) return __LINE__;
-" + ss + @"    xx::Data_r dr(d.buf + d.offset, siz);
-");
+/*CodeGen*/ " + ss + @"    uint32_t siz;
+/*CodeGen*/ " + ss + @"    if (int r = d.ReadFixed(siz)) return r;
+/*CodeGen*/ " + ss + @"    if (siz < sizeof(siz)) return __LINE__;
+/*CodeGen*/ " + ss + @"    siz -= sizeof(siz);
+/*CodeGen*/ " + ss + @"    if (siz > d.len - d.offset) return __LINE__;
+/*CodeGen*/ " + ss + @"    xx::Data_r dr(d.buf + d.offset, siz);
+/*CodeGen*/ ");
                 foreach (var f in fs) {
                     var ft = f.FieldType;
 
@@ -657,120 +657,120 @@ namespace " + ns + "{");
                     }
 
                     sb.Append(@"
-" + ss + @"    if (dr.offset == siz) " + dv + @";
-" + ss + @"    else if (int r = om.Read(dr, this->" + f.Name + @")) return r;");
+/*CodeGen*/ " + ss + @"    if (dr.offset == siz) " + dv + @";
+/*CodeGen*/ " + ss + @"    else if (int r = om.Read(dr, this->" + f.Name + @")) return r;");
                 }
 
                 sb.Append(@"
 
-" + ss + @"    d.offset += siz;");
+/*CodeGen*/ " + ss + @"    d.offset += siz;");
             }
             else {
                 foreach (var f in fs) {
                     if (f.FieldType._IsPureType(1)) {
                         sb.Append(@"
-" + ss + @"    if (int r = d.Read(this->" + f.Name + @")) return r;");
+/*CodeGen*/ " + ss + @"    if (int r = d.Read(this->" + f.Name + @")) return r;");
                     }
                     else {
                         sb.Append(@"
-" + ss + @"    if (int r = om.Read(d, this->" + f.Name + @")) return r;");
+/*CodeGen*/ " + ss + @"    if (int r = om.Read(d, this->" + f.Name + @")) return r;");
                     }
                 }
             }
 
             sb.Append(@"
-" + ss + @"    return 0;
-" + ss + @"}");
+/*CodeGen*/ " + ss + @"    return 0;
+/*CodeGen*/ " + ss + @"}");
 
             // Append
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om, std::string& s) const {
-#ifndef XX_DISABLE_APPEND
-" + ss + @"    ::xx::Append(s, ""{\""__typeId__\"":" + c._GetTypeId() + @""");");
+/*CodeGen*/ " + ss + @"void " + c.Name + @"::Append(::xx::ObjManager& om, std::string& s) const {
+/*CodeGen*/ #ifndef XX_DISABLE_APPEND
+/*CodeGen*/ " + ss + @"    ::xx::Append(s, ""{\""__typeId__\"":" + c._GetTypeId() + @""");");
             sb.Append(@"
-" + ss + @"    this->AppendCore(om, s);
-" + ss + @"    s.push_back('}');
-#endif
-" + ss + @"}
-" + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om, std::string& s) const {
-#ifndef XX_DISABLE_APPEND");
+/*CodeGen*/ " + ss + @"    this->AppendCore(om, s);
+/*CodeGen*/ " + ss + @"    s.push_back('}');
+/*CodeGen*/ #endif
+/*CodeGen*/ " + ss + @"}
+/*CodeGen*/ " + ss + @"void " + c.Name + @"::AppendCore(::xx::ObjManager& om, std::string& s) const {
+/*CodeGen*/ #ifndef XX_DISABLE_APPEND");
 
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::AppendCore(om, s);");
+/*CodeGen*/ " + ss + @"    this->BaseType::AppendCore(om, s);");
             }
 
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-" + ss + @"    om.Append(s, "",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
+/*CodeGen*/ " + ss + @"    om.Append(s, "",\""" + f.Name + @"\"":"", this->" + f.Name + @");");
             }
             sb.Append(@"
-#endif
-" + ss + @"}");
+/*CodeGen*/ #endif
+/*CodeGen*/ " + ss + @"}");
 
             // Clone
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::Clone(::xx::ObjManager& om, void* const &tar) const {");
+/*CodeGen*/ " + ss + @"void " + c.Name + @"::Clone(::xx::ObjManager& om, void* const &tar) const {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::Clone(om, tar);");
+/*CodeGen*/ " + ss + @"    this->BaseType::Clone(om, tar);");
             }
             if (fs.Count > 0) {
                 sb.Append(@"
-" + ss + @"    auto out = (" + c._GetTypeDecl_Cpp() + @"*)tar;");
+/*CodeGen*/ " + ss + @"    auto out = (" + c._GetTypeDecl_Cpp() + @"*)tar;");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-" + ss + @"    om.Clone_(this->" + f.Name + ", out->" + f.Name + ");");
+/*CodeGen*/ " + ss + @"    om.Clone_(this->" + f.Name + ", out->" + f.Name + ");");
             }
             sb.Append(@"
-" + ss + @"}");
+/*CodeGen*/ " + ss + @"}");
 
             // RecursiveCheck
             sb.Append(@"
-" + ss + @"int " + c.Name + @"::RecursiveCheck(::xx::ObjManager& om) const {");
+/*CodeGen*/ " + ss + @"int " + c.Name + @"::RecursiveCheck(::xx::ObjManager& om) const {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    if (int r = this->BaseType::RecursiveCheck(om)) return r;");
+/*CodeGen*/ " + ss + @"    if (int r = this->BaseType::RecursiveCheck(om)) return r;");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 // todo: 跳过不含有 Shared 的类型的生成
                 sb.Append(@"
-" + ss + @"    if (int r = om.RecursiveCheck(this->" + f.Name + ")) return r;");
+/*CodeGen*/ " + ss + @"    if (int r = om.RecursiveCheck(this->" + f.Name + ")) return r;");
             }
             sb.Append(@"
-" + ss + @"    return 0;
-" + ss + @"}");
+/*CodeGen*/ " + ss + @"    return 0;
+/*CodeGen*/ " + ss + @"}");
 
             // RecursiveReset
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::RecursiveReset(::xx::ObjManager& om) {");
+/*CodeGen*/ " + ss + @"void " + c.Name + @"::RecursiveReset(::xx::ObjManager& om) {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::RecursiveReset(om);");
+/*CodeGen*/ " + ss + @"    this->BaseType::RecursiveReset(om);");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
                 sb.Append(@"
-" + ss + @"    om.RecursiveReset(this->" + f.Name + ");");
+/*CodeGen*/ " + ss + @"    om.RecursiveReset(this->" + f.Name + ");");
             }
             sb.Append(@"
-" + ss + @"}");
+/*CodeGen*/ " + ss + @"}");
 
             // SetDefaultValue
             sb.Append(@"
-" + ss + @"void " + c.Name + @"::SetDefaultValue(::xx::ObjManager& om) {");
+/*CodeGen*/ " + ss + @"void " + c.Name + @"::SetDefaultValue(::xx::ObjManager& om) {");
             if (c._HasBaseType()) {
                 var bt = c.BaseType;
                 sb.Append(@"
-" + ss + @"    this->BaseType::SetDefaultValue(om);");
+/*CodeGen*/ " + ss + @"    this->BaseType::SetDefaultValue(om);");
             }
             foreach (var f in fs) {
                 var ft = f.FieldType;
@@ -786,15 +786,15 @@ namespace " + ns + "{");
                 }
 
                 sb.Append(@"
-" + ss + @"    " + dv + @";");
+/*CodeGen*/ " + ss + @"    " + dv + @";");
             }
             sb.Append(@"
-" + ss + @"}");
+/*CodeGen*/ " + ss + @"}");
 
             // namespace }
             if (ss != "") {
                 sb.Append(@"
-}");
+/*CodeGen*/ }");
             }
         }
         sb.Append(@"
@@ -808,21 +808,23 @@ namespace " + ns + "{");
         }
         var fs = c._GetFields();
         foreach (var f in fs) {
-            sb.Append(", " + f.Name);
+            sb.Append(@"
+/*CodeGen*/ , " + f.Name);
         }
     }
 
     public static void Gen_ajson_h() {
         var sb = new StringBuilder();
-        sb.Append(@"#pragma once
-#include <" + cfg.name + @".h>
-#include <ajson.hpp>");
+        sb.Append(@"/*CodeGen*/ #pragma once
+/*CodeGen*/ #include <" + cfg.name + @".h>
+/*CodeGen*/ #include <ajson.hpp>");
         foreach (var c in cfg.localStructs) {
             if (c._HasClassMember()) continue;
             sb.Append(@"
-AJSON(" + c._GetTypeDecl_Cpp());
+/*CodeGen*/ AJSON(" + c._GetTypeDecl_Cpp());
             GenH_AJSON(sb, c);
-            sb.Append(");");
+            sb.Append(@"
+/*CodeGen*/ );");
         }
         sb.Append(@"
 ");

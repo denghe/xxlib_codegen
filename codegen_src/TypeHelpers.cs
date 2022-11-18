@@ -508,42 +508,49 @@ public static partial class TypeHelpers {
         }
     }
 
+    // 为排序服务的临时容器. 最优先按 count 排序，其次按 type.FullName 排序
     public class TypeCount : IComparable<TypeCount> {
         public Type type;
         public int count;
 
-        public int CompareTo(TypeCount other) {
-            return -this.count.CompareTo(other.count);  // 从大到小倒排
+        public int CompareTo(TypeCount o) {
+            var v = -this.count.CompareTo(o.count);
+            if (v != 0) return this.type.FullName.CompareTo(o.type.FullName);
+            return v;
         }
     }
 
     /// <summary>
-    /// 根据继承 & 成员引用关系排序, 被引用多的在前( 便于 C++ 生成 )
+    /// 根据继承 & 成员引用关系排序, 被引用多的在前( 便于 C++ 生成 ). 返回是否成功排序( 如果存在递归引用则排序将失败，只能按 FullName 字母排 )
     /// </summary>
-    public static List<Type> _SortByInheritRelation(this List<Type> ts) {
+    public static bool _SortByInheritRelation(this List<Type> ts) {
+        // 先来一发
+        ts._SortByFullName();
 
-        var typeCounts = new Dictionary<Type, int>();
-        foreach (var t in ts) {
-            typeCounts.Add(t, 0);
-        }
+        // todo: 移动排序，将 type 移到 自己的 parent & member 出现过的 type 的后面去. 反复 check 直到移不动为止. 如果超过 ts.count 次还不终止，说明存在递归引用关系
 
-        foreach (var t in ts) {
-            var types = new List<Type>();
-            FillChildStructTypes(t, types);
-            foreach (var type in types) {
-                typeCounts[type]++;
-            }
-        }
+        //var typeCounts = new Dictionary<Type, int>();
+        //foreach (var t in ts) {
+        //    typeCounts.Add(t, 0);
+        //}
 
-        var list = new List<TypeCount>();
-        foreach (var t in ts) {
-            list.Add(new TypeCount { type = t, count = typeCounts[t] });
-        }
-        list.Sort();
+        //foreach (var t in ts) {
+        //    var types = new List<Type>();
+        //    FillChildStructTypes(t, types);
+        //    foreach (var type in types) {
+        //        typeCounts[type]++;
+        //    }
+        //}
 
-        ts.Clear();
-        ts.AddRange(list.Select(a => a.type));
-        return ts;
+        //var list = new List<TypeCount>();
+        //foreach (var t in ts) {
+        //    list.Add(new TypeCount { type = t, count = typeCounts[t] });
+        //}
+        //list.Sort();
+
+        //ts.Clear();
+        //ts.AddRange(list.Select(a => a.type));
+        return true;
     }
 
     class TypeComparer : Comparer<Type> {
