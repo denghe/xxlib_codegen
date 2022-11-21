@@ -183,11 +183,11 @@ public static partial class TypeHelpers {
     }
 
     /// <summary>
-    /// 获取 Cpp 风格的注释
+    /// 获取 Cpp 风格的注释( 会先换行 )
     /// </summary>
     public static string _GetComment_Cpp(this string s, int space, string prefix = "") {
         if (s.Trim() == "")
-            return prefix + "";
+            return "";
         var sps = new string(' ', space);
         s = s.Replace("\r\n", "\n")
          .Replace("\r", "\n")

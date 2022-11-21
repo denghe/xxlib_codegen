@@ -486,73 +486,59 @@ public static partial class TypeHelpers {
     /**************************************************************************************************/
 
     /// <summary>
-    /// 递归获取 type 所有子 type( parent, fields, generic T... 都算 ) 填充到 types
+    /// 根据继承 & 成员引用关系排序, 被引用多的在前( 便于 C++ 生成 ). 返回是否成功排序( 如果存在递归引用则排序将失败，只能按 FullName 字母排 )
     /// </summary>
-    public static void FillChildStructTypes(this Type t, List<Type> types) {
-        if (t.IsGenericType) {
-            foreach (var ct in t.GetGenericArguments()) {
-                FillChildStructTypes(ct, types);
+    public static void _SortByInheritRelation(this List<Type> ts) {
+        // 移动排序，将 type 移到 自己的 parent & member 出现过的 type 的后面去
+        // 先来一发
+        ts._SortByFullName();
+        // 克隆一份, 搞起
+        var bak = ts.ToArray();
+        foreach (var t in bak) {
+            // 先把 t 放进集合，防递归
+            var types = new HashSet<Type>();
+            // 找出所有依赖
+            FillChildStructTypes(t, types);
+            // 移除自身
+            types.Remove(t);
+            // 找出 types 在 ts 中的最大 index
+            int idx = ts.IndexOf(t);
+            var idxBak = idx;
+            foreach (var o in types) {
+                idx = Math.Max(idx, ts.IndexOf(o));
             }
-        }
-        else {
-            if (t._HasBaseType()) {
-                FillChildStructTypes(t.BaseType, types);
+            if (idx > idxBak) {
+                // 将 ts 中的 t 移到 该 index 后面
+                ts.Remove(t);
+                ts.Insert(idx, t);
             }
-            if (t._IsClass() || t._IsStruct()) {
-                if (types.Contains(t)) return;
-                types.Add(t);
-                foreach (var f in t._GetFields()) {
-                    FillChildStructTypes(f.FieldType, types);
-                }
-            }
-        }
-    }
-
-    // 为排序服务的临时容器. 最优先按 count 排序，其次按 type.FullName 排序
-    public class TypeCount : IComparable<TypeCount> {
-        public Type type;
-        public int count;
-
-        public int CompareTo(TypeCount o) {
-            var v = -this.count.CompareTo(o.count);
-            if (v != 0) return this.type.FullName.CompareTo(o.type.FullName);
-            return v;
         }
     }
 
     /// <summary>
-    /// 根据继承 & 成员引用关系排序, 被引用多的在前( 便于 C++ 生成 ). 返回是否成功排序( 如果存在递归引用则排序将失败，只能按 FullName 字母排 )
+    /// 递归获取 type 所有子 type( parent, fields, generic T... 都算 ) 填充到 types
+    /// fields Shared Weak 包裹可忽略
     /// </summary>
-    public static bool _SortByInheritRelation(this List<Type> ts) {
-        // 先来一发
-        ts._SortByFullName();
-
-        // todo: 移动排序，将 type 移到 自己的 parent & member 出现过的 type 的后面去. 反复 check 直到移不动为止. 如果超过 ts.count 次还不终止，说明存在递归引用关系
-
-        //var typeCounts = new Dictionary<Type, int>();
-        //foreach (var t in ts) {
-        //    typeCounts.Add(t, 0);
-        //}
-
-        //foreach (var t in ts) {
-        //    var types = new List<Type>();
-        //    FillChildStructTypes(t, types);
-        //    foreach (var type in types) {
-        //        typeCounts[type]++;
-        //    }
-        //}
-
-        //var list = new List<TypeCount>();
-        //foreach (var t in ts) {
-        //    list.Add(new TypeCount { type = t, count = typeCounts[t] });
-        //}
-        //list.Sort();
-
-        //ts.Clear();
-        //ts.AddRange(list.Select(a => a.type));
-        return true;
+    public static void FillChildStructTypes(this Type t, HashSet<Type> types) {
+        if (t.IsGenericType) {
+            if (t._IsShared() || t._IsWeak()) return;
+            foreach (var ct in t.GetGenericArguments()) {
+                FillChildStructTypes(ct, types);
+            }
+        } else if (t._IsClass() || t._IsStruct()) {
+            if (!types.Add(t)) return;
+            if (t._HasBaseType()) {
+                FillChildStructTypes(t.BaseType, types);
+            }
+            foreach (var f in t._GetFields()) {
+                FillChildStructTypes(f.FieldType, types);
+            }
+        }
     }
 
+    /// <summary>
+    /// for sort by full name
+    /// </summary>
     class TypeComparer : Comparer<Type> {
         public override int Compare(Type x, Type y) {
             return x.FullName.CompareTo(y.FullName);

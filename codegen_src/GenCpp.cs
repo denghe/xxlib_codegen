@@ -809,7 +809,7 @@ public static class GenCpp {
         var fs = c._GetFields();
         foreach (var f in fs) {
             sb.Append(@"
-/*CodeGen*/ , " + f.Name);
+/*CodeGen*/     , " + f.Name);
         }
     }
 
